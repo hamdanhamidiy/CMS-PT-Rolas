@@ -27,6 +27,8 @@ export default function PlayerPage() {
   const [playlist, setPlaylist] = useState<(PlaylistItem & { media: Media })[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentMedia, setCurrentMedia] = useState<Media | null>(null);
+  const [playCount, setPlayCount] = useState(0); // Tracks iteration count for 1-item playlists
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
   const activeScheduleIdRef = useRef<string | null>(null);
@@ -229,9 +231,21 @@ export default function PlayerPage() {
   // ============================================
   const playNext = useCallback(() => {
     if (playlist.length === 0) return;
+
+    if (playlist.length === 1) {
+      // Force restart for single-item playlists (e.g. 1 promo video)
+      if (videoRef.current && playlist[0]?.media?.media_type === 'video') {
+        videoRef.current.currentTime = 0;
+        videoRef.current.play().catch(() => {});
+      }
+      setPlayCount((prev) => prev + 1);
+      return;
+    }
+
     const nextIndex = (currentIndex + 1) % playlist.length;
     setCurrentIndex(nextIndex);
     setCurrentMedia(playlist[nextIndex].media);
+    setPlayCount((prev) => prev + 1);
   }, [currentIndex, playlist]);
 
   // Intelligent Background Preloading for Zero Delay
@@ -263,7 +277,6 @@ export default function PlayerPage() {
 
     if (currentMedia.media_type === 'video' && videoRef.current) {
       const vid = videoRef.current;
-      vid.currentTime = 0;
 
       const attemptPlay = async () => {
         try {
@@ -274,7 +287,7 @@ export default function PlayerPage() {
             vid.muted = true;
             await vid.play();
           } catch {
-            // Autoplay blocked completely, skip after short delay
+            // Autoplay blocked completely
           }
         }
       };
@@ -287,7 +300,7 @@ export default function PlayerPage() {
 
       return () => clearTimeout(safetyTimeout);
     }
-  }, [currentMedia, phase, playNext]);
+  }, [currentMedia, phase, playNext, playCount]);
 
   // ============================================
   // Heartbeat
@@ -469,6 +482,7 @@ export default function PlayerPage() {
           ref={videoRef}
           src={currentMedia.file_url}
           autoPlay
+          loop={playlist.length === 1}
           playsInline
           controls={false}
           preload="auto"
