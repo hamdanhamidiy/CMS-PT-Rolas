@@ -188,12 +188,16 @@ export default function UploadMediaPage() {
 
       // 5. Log activity
       if (user && createdBy) {
-        await supabase.from('activity_logs').insert({
-          user_id: createdBy,
-          action: 'upload_media',
-          entity_type: 'media',
-          details: `Upload media: ${title.trim()}`,
-        }).catch(() => {});
+        try {
+          await supabase.from('activity_logs').insert({
+            user_id: createdBy,
+            action: 'upload_media',
+            entity_type: 'media',
+            details: `Upload media: ${title.trim()}`,
+          });
+        } catch {
+          // Ignore activity log failure
+        }
       }
 
       setProgress(100);
