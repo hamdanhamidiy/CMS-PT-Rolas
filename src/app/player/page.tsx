@@ -10,6 +10,7 @@ import { Tv, KeyRound, Loader2, Sparkles } from 'lucide-react';
 // Constants
 // ============================================
 const HEARTBEAT_INTERVAL = 30000; // 30 seconds
+const SCHEDULE_CHECK_INTERVAL = 10000; // Check schedule transition every 10 seconds
 const DEVICE_TOKEN_KEY = 'signage_device_token';
 const SCREEN_ID_KEY = 'signage_screen_id';
 
@@ -22,11 +23,18 @@ export default function PlayerPage() {
   const [activating, setActivating] = useState(false);
 
   // Player state
+  const [activeScheduleId, setActiveScheduleId] = useState<string | null>(null);
   const [playlist, setPlaylist] = useState<(PlaylistItem & { media: Media })[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentMedia, setCurrentMedia] = useState<Media | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
+  const activeScheduleIdRef = useRef<string | null>(null);
+
+  // Keep ref in sync
+  useEffect(() => {
+    activeScheduleIdRef.current = activeScheduleId;
+  }, [activeScheduleId]);
 
   // ============================================
   // Check for existing device token on mount
@@ -58,7 +66,7 @@ export default function PlayerPage() {
         .from('screens')
         .update({ status: 'online', last_seen: new Date().toISOString() })
         .eq('id', data.id);
-      loadScheduleAndPlay(data.id);
+      loadScheduleAndPlay(data.id, true);
     } else {
       localStorage.removeItem(SCREEN_ID_KEY);
       localStorage.removeItem(DEVICE_TOKEN_KEY);
@@ -116,14 +124,14 @@ export default function PlayerPage() {
     setScreenName(activation.screen?.name || '');
     setActivating(false);
 
-    loadScheduleAndPlay(activation.screen_id);
+    loadScheduleAndPlay(activation.screen_id, true);
   };
 
   // ============================================
-  // Load Schedule & Play
+  // Load Schedule & Play (With Silent Transition)
   // ============================================
-  const loadScheduleAndPlay = async (sid: string) => {
-    setPhase('loading');
+  const loadScheduleAndPlay = async (sid: string, showLoading = false) => {
+    if (showLoading) setPhase('loading');
     const supabase = createClient();
 
     const now = new Date();
@@ -136,8 +144,12 @@ export default function PlayerPage() {
       .eq('screen_id', sid);
 
     if (!scheduleScreens || scheduleScreens.length === 0) {
+      if (activeScheduleIdRef.current !== null || playlist.length > 0) {
+        setPlaylist([]);
+        setCurrentMedia(null);
+        setActiveScheduleId(null);
+      }
       setPhase('playing');
-      setPlaylist([]);
       startHeartbeat(sid, null);
       setupRealtimeListener(sid);
       return;
@@ -157,8 +169,12 @@ export default function PlayerPage() {
       .order('priority', { ascending: false });
 
     if (!schedules || schedules.length === 0) {
+      if (activeScheduleIdRef.current !== null || playlist.length > 0) {
+        setPlaylist([]);
+        setCurrentMedia(null);
+        setActiveScheduleId(null);
+      }
       setPhase('playing');
-      setPlaylist([]);
       startHeartbeat(sid, null);
       setupRealtimeListener(sid);
       return;
@@ -166,6 +182,13 @@ export default function PlayerPage() {
 
     const activeSchedule = schedules[0];
 
+    // Check if schedule hasn't changed to avoid unnecessary playlist reloads
+    if (activeSchedule.id === activeScheduleIdRef.current && playlist.length > 0) {
+      setPhase('playing');
+      return;
+    }
+
+    // Load items for newly active schedule (e.g., promo schedule takeover)
     const { data: items } = await supabase
       .from('playlist_items')
       .select('*, media(*)')
@@ -173,15 +196,33 @@ export default function PlayerPage() {
       .order('sort_order', { ascending: true });
 
     if (items && items.length > 0) {
+      setActiveScheduleId(activeSchedule.id);
       setPlaylist(items as any);
       setCurrentIndex(0);
       setCurrentMedia(items[0].media);
+    } else {
+      setActiveScheduleId(activeSchedule.id);
+      setPlaylist([]);
+      setCurrentMedia(null);
     }
 
     setPhase('playing');
     startHeartbeat(sid, items?.[0]?.media?.id || null);
     setupRealtimeListener(sid);
   };
+
+  // ============================================
+  // Schedule Auto-Ticker (Syncs Promo Transition Real-Time Every 10s)
+  // ============================================
+  useEffect(() => {
+    if (!screenId || phase === 'activation') return;
+
+    const timer = setInterval(() => {
+      loadScheduleAndPlay(screenId, false);
+    }, SCHEDULE_CHECK_INTERVAL);
+
+    return () => clearInterval(timer);
+  }, [screenId, phase]);
 
   // ============================================
   // Playback
@@ -237,14 +278,14 @@ export default function PlayerPage() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'schedules' },
         () => {
-          loadScheduleAndPlay(sid);
+          loadScheduleAndPlay(sid, false);
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'schedule_screens' },
         () => {
-          loadScheduleAndPlay(sid);
+          loadScheduleAndPlay(sid, false);
         }
       )
       .subscribe();
