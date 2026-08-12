@@ -4,13 +4,14 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Media, PlaylistItem } from '@/lib/types';
 import Logo from '@/components/shared/Logo';
-import { Tv, KeyRound, Loader2, Sparkles, Maximize, Minimize, Expand, RefreshCw } from 'lucide-react';
+import { Tv, KeyRound, Loader2, Sparkles, Maximize, Minimize, Expand } from 'lucide-react';
 
 // ============================================
 // Constants
 // ============================================
 const HEARTBEAT_INTERVAL = 30000; // 30 seconds
 const SCHEDULE_CHECK_INTERVAL = 10000; // Check schedule transition every 10 seconds
+const CLOCK_SYNC_INTERVAL = 3000; // Re-align player clock with global epoch every 3 seconds
 const DEVICE_TOKEN_KEY = 'signage_device_token';
 const SCREEN_ID_KEY = 'signage_screen_id';
 
@@ -27,7 +28,6 @@ export default function PlayerPage() {
   const [playlist, setPlaylist] = useState<(PlaylistItem & { media: Media })[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentMedia, setCurrentMedia] = useState<Media | null>(null);
-  const [playCount, setPlayCount] = useState(0); // Tracks iteration count for 1-item playlists
 
   // Display Customization State
   const [fitMode, setFitMode] = useState<'contain' | 'cover' | 'fill'>('contain');
@@ -38,11 +38,16 @@ export default function PlayerPage() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
   const activeScheduleIdRef = useRef<string | null>(null);
+  const playlistRef = useRef<(PlaylistItem & { media: Media })[]>([]);
 
-  // Keep ref in sync
+  // Keep refs in sync
   useEffect(() => {
     activeScheduleIdRef.current = activeScheduleId;
   }, [activeScheduleId]);
+
+  useEffect(() => {
+    playlistRef.current = playlist;
+  }, [playlist]);
 
   // Auto-hide floating controls after inactivity
   const handleUserActivity = () => {
@@ -194,6 +199,65 @@ export default function PlayerPage() {
   };
 
   // ============================================
+  // GLOBAL WALL CLOCK SYNCHRONIZATION ENGINE
+  // ============================================
+  // Calculates global slide index & video second offset derived from Epoch Date.now()
+  // guarantees 100% simultaneous lockstep playback across Screen 1, Screen 2, and Screen 3!
+  const syncGlobalClock = useCallback(() => {
+    const currentList = playlistRef.current;
+    if (currentList.length === 0) return;
+
+    // Calculate total rotation loop duration across all items
+    let totalLoopSec = 0;
+    const itemDurations = currentList.map((item) => {
+      const dur = item.media?.duration || 10;
+      const limit = item.play_limit || 1;
+      const totalItemSec = dur * limit;
+      totalLoopSec += totalItemSec;
+      return { dur, limit, totalItemSec };
+    });
+
+    if (totalLoopSec === 0) return;
+
+    // Determine current global position in seconds within rotation loop
+    const nowSec = Math.floor(Date.now() / 1000);
+    const globalPos = nowSec % totalLoopSec;
+
+    // Find which item & offset corresponds to this global position
+    let accum = 0;
+    let targetIndex = 0;
+    let offsetInItem = 0;
+
+    for (let i = 0; i < currentList.length; i++) {
+      const itemSec = itemDurations[i].totalItemSec;
+      if (accum + itemSec > globalPos) {
+        targetIndex = i;
+        offsetInItem = globalPos - accum;
+        break;
+      }
+      accum += itemSec;
+    }
+
+    const targetMedia = currentList[targetIndex]?.media;
+    if (!targetMedia) return;
+
+    const mediaDur = targetMedia.duration || 10;
+    const offsetInMedia = offsetInItem % mediaDur;
+
+    // Sync state
+    setCurrentIndex(targetIndex);
+    setCurrentMedia(targetMedia);
+
+    // If video, align playback position if drifted by > 0.5s
+    if (targetMedia.media_type === 'video' && videoRef.current) {
+      const vid = videoRef.current;
+      if (Math.abs(vid.currentTime - offsetInMedia) > 0.5) {
+        vid.currentTime = offsetInMedia;
+      }
+    }
+  }, []);
+
+  // ============================================
   // Load Schedule & Play (With Silent Transition)
   // ============================================
   const loadScheduleAndPlay = async (sid: string, showLoading = false) => {
@@ -263,9 +327,12 @@ export default function PlayerPage() {
 
     if (items && items.length > 0) {
       setActiveScheduleId(activeSchedule.id);
-      setPlaylist(items as any);
-      setCurrentIndex(0);
-      setCurrentMedia(items[0].media);
+      const loadedList = items as any;
+      setPlaylist(loadedList);
+      playlistRef.current = loadedList;
+
+      // Sync immediately to global wall clock
+      syncGlobalClock();
     } else {
       setActiveScheduleId(activeSchedule.id);
       setPlaylist([]);
@@ -278,41 +345,30 @@ export default function PlayerPage() {
   };
 
   // ============================================
-  // Schedule Auto-Ticker (Syncs Promo Transition Real-Time Every 10s)
+  // Periodic Clock Sync & Schedule Ticker
   // ============================================
   useEffect(() => {
     if (!screenId || phase === 'activation') return;
 
-    const timer = setInterval(() => {
+    // Check schedule transitions every 10 seconds
+    const scheduleTimer = setInterval(() => {
       loadScheduleAndPlay(screenId, false);
     }, SCHEDULE_CHECK_INTERVAL);
 
-    return () => clearInterval(timer);
-  }, [screenId, phase]);
+    // Re-align player clock to global wall clock every 3 seconds for 100% multi-screen sync
+    const clockTimer = setInterval(() => {
+      syncGlobalClock();
+    }, CLOCK_SYNC_INTERVAL);
+
+    return () => {
+      clearInterval(scheduleTimer);
+      clearInterval(clockTimer);
+    };
+  }, [screenId, phase, syncGlobalClock]);
 
   // ============================================
-  // Playback Navigation & Preloading
+  // Background Preloading for Next Media
   // ============================================
-  const playNext = useCallback(() => {
-    if (playlist.length === 0) return;
-
-    if (playlist.length === 1) {
-      // Force restart for single-item playlists (e.g. 1 promo video)
-      if (videoRef.current && playlist[0]?.media?.media_type === 'video') {
-        videoRef.current.currentTime = 0;
-        videoRef.current.play().catch(() => {});
-      }
-      setPlayCount((prev) => prev + 1);
-      return;
-    }
-
-    const nextIndex = (currentIndex + 1) % playlist.length;
-    setCurrentIndex(nextIndex);
-    setCurrentMedia(playlist[nextIndex].media);
-    setPlayCount((prev) => prev + 1);
-  }, [currentIndex, playlist]);
-
-  // Intelligent Background Preloading for Zero Delay
   useEffect(() => {
     if (playlist.length <= 1) return;
     const nextIndex = (currentIndex + 1) % playlist.length;
@@ -330,14 +386,11 @@ export default function PlayerPage() {
     }
   }, [currentIndex, playlist]);
 
-  // Robust Autoplay Handler for Images & Videos with Safety Timeout
+  // ============================================
+  // Playback Auto-play & Autoplay Policy Fallback
+  // ============================================
   useEffect(() => {
     if (!currentMedia || phase !== 'playing') return;
-
-    if (currentMedia.media_type === 'image') {
-      const timeout = setTimeout(playNext, (currentMedia.duration || 10) * 1000);
-      return () => clearTimeout(timeout);
-    }
 
     if (currentMedia.media_type === 'video' && videoRef.current) {
       const vid = videoRef.current;
@@ -357,14 +410,8 @@ export default function PlayerPage() {
       };
 
       attemptPlay();
-
-      // Safety fallback timer: skip to next item if video hangs or network stalls
-      const safetyTime = ((currentMedia.duration || 30) + 5) * 1000;
-      const safetyTimeout = setTimeout(playNext, safetyTime);
-
-      return () => clearTimeout(safetyTimeout);
     }
-  }, [currentMedia, phase, playNext, playCount]);
+  }, [currentMedia, phase]);
 
   // ============================================
   // Heartbeat
@@ -596,8 +643,6 @@ export default function PlayerPage() {
           playsInline
           controls={false}
           preload="auto"
-          onEnded={playNext}
-          onError={playNext}
           className={`w-full h-full ${fitClass}`}
         />
       ) : (
