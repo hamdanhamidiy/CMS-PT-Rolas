@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Media, PlaylistItem } from '@/lib/types';
 import Logo from '@/components/shared/Logo';
-import { Tv, KeyRound, Loader2, Sparkles, Maximize, Minimize, Expand } from 'lucide-react';
+import { Tv, KeyRound, Loader2, Sparkles, Maximize, Minimize, Expand, LogOut } from 'lucide-react';
 
 // ============================================
 // Constants
@@ -107,6 +107,29 @@ export default function PlayerPage() {
     });
   };
 
+  // Reset & Unpair device from local player
+  const handleResetDevice = async () => {
+    if (!confirm('Reset koneksi perangkat ini? Layar akan kembali meminta Kode Aktivasi 6-digit.')) {
+      return;
+    }
+
+    if (screenId) {
+      const supabase = createClient();
+      await supabase
+        .from('screens')
+        .update({ device_token: null, status: 'inactive' })
+        .eq('id', screenId);
+    }
+
+    localStorage.removeItem(SCREEN_ID_KEY);
+    localStorage.removeItem(DEVICE_TOKEN_KEY);
+    setScreenId(null);
+    setPlaylist([]);
+    setCurrentMedia(null);
+    setActiveScheduleId(null);
+    setPhase('activation');
+  };
+
   // ============================================
   // Check for existing device token on mount
   // ============================================
@@ -127,10 +150,9 @@ export default function PlayerPage() {
       .from('screens')
       .select('*')
       .eq('id', screenIdVal)
-      .eq('device_token', token)
       .single();
 
-    if (data) {
+    if (data && data.device_token === token) {
       setScreenId(data.id);
       setScreenName(data.name);
       await supabase
@@ -139,8 +161,10 @@ export default function PlayerPage() {
         .eq('id', data.id);
       loadScheduleAndPlay(data.id, true);
     } else {
+      // Device token has been reset by Admin in Dashboard! Force reset to activation screen.
       localStorage.removeItem(SCREEN_ID_KEY);
       localStorage.removeItem(DEVICE_TOKEN_KEY);
+      setScreenId(null);
       setPhase('activation');
     }
   };
@@ -201,13 +225,10 @@ export default function PlayerPage() {
   // ============================================
   // GLOBAL WALL CLOCK SYNCHRONIZATION ENGINE
   // ============================================
-  // Calculates global slide index & video second offset derived from Epoch Date.now()
-  // guarantees 100% simultaneous lockstep playback across Screen 1, Screen 2, and Screen 3!
   const syncGlobalClock = useCallback(() => {
     const currentList = playlistRef.current;
     if (currentList.length === 0) return;
 
-    // Calculate total rotation loop duration across all items
     let totalLoopSec = 0;
     const itemDurations = currentList.map((item) => {
       const dur = item.media?.duration || 10;
@@ -219,11 +240,9 @@ export default function PlayerPage() {
 
     if (totalLoopSec === 0) return;
 
-    // Determine current global position in seconds within rotation loop
     const nowSec = Math.floor(Date.now() / 1000);
     const globalPos = nowSec % totalLoopSec;
 
-    // Find which item & offset corresponds to this global position
     let accum = 0;
     let targetIndex = 0;
     let offsetInItem = 0;
@@ -244,11 +263,9 @@ export default function PlayerPage() {
     const mediaDur = targetMedia.duration || 10;
     const offsetInMedia = offsetInItem % mediaDur;
 
-    // Sync state
     setCurrentIndex(targetIndex);
     setCurrentMedia(targetMedia);
 
-    // If video, align playback position if drifted by > 0.5s
     if (targetMedia.media_type === 'video' && videoRef.current) {
       const vid = videoRef.current;
       if (Math.abs(vid.currentTime - offsetInMedia) > 0.5) {
@@ -263,6 +280,26 @@ export default function PlayerPage() {
   const loadScheduleAndPlay = async (sid: string, showLoading = false) => {
     if (showLoading) setPhase('loading');
     const supabase = createClient();
+
+    // 1. Verify device token validity in DB
+    const savedToken = localStorage.getItem(DEVICE_TOKEN_KEY);
+    const { data: currentScreen } = await supabase
+      .from('screens')
+      .select('device_token')
+      .eq('id', sid)
+      .single();
+
+    if (!currentScreen || currentScreen.device_token !== savedToken) {
+      // Admin clicked "Reset Koneksi" in Dashboard! Force reset to activation screen.
+      localStorage.removeItem(SCREEN_ID_KEY);
+      localStorage.removeItem(DEVICE_TOKEN_KEY);
+      setScreenId(null);
+      setActiveScheduleId(null);
+      setPlaylist([]);
+      setCurrentMedia(null);
+      setPhase('activation');
+      return;
+    }
 
     const now = new Date();
     const today = now.toISOString().split('T')[0];
@@ -312,13 +349,11 @@ export default function PlayerPage() {
 
     const activeSchedule = schedules[0];
 
-    // Check if schedule hasn't changed to avoid unnecessary playlist reloads
     if (activeSchedule.id === activeScheduleIdRef.current && playlist.length > 0) {
       setPhase('playing');
       return;
     }
 
-    // Load items for newly active schedule (e.g., promo schedule takeover)
     const { data: items } = await supabase
       .from('playlist_items')
       .select('*, media(*)')
@@ -331,7 +366,6 @@ export default function PlayerPage() {
       setPlaylist(loadedList);
       playlistRef.current = loadedList;
 
-      // Sync immediately to global wall clock
       syncGlobalClock();
     } else {
       setActiveScheduleId(activeSchedule.id);
@@ -350,12 +384,10 @@ export default function PlayerPage() {
   useEffect(() => {
     if (!screenId || phase === 'activation') return;
 
-    // Check schedule transitions every 10 seconds
     const scheduleTimer = setInterval(() => {
       loadScheduleAndPlay(screenId, false);
     }, SCHEDULE_CHECK_INTERVAL);
 
-    // Re-align player clock to global wall clock every 3 seconds for 100% multi-screen sync
     const clockTimer = setInterval(() => {
       syncGlobalClock();
     }, CLOCK_SYNC_INTERVAL);
@@ -443,7 +475,25 @@ export default function PlayerPage() {
     const supabase = createClient();
 
     supabase
-      .channel('schedule-changes')
+      .channel('screen-device-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'screens', filter: `id=eq.${sid}` },
+        (payload) => {
+          const newScreen = payload.new as any;
+          const savedToken = localStorage.getItem(DEVICE_TOKEN_KEY);
+          if (!newScreen || newScreen.device_token !== savedToken) {
+            // Admin clicked "Reset Koneksi" in Dashboard! Instantly return to activation screen.
+            localStorage.removeItem(SCREEN_ID_KEY);
+            localStorage.removeItem(DEVICE_TOKEN_KEY);
+            setScreenId(null);
+            setActiveScheduleId(null);
+            setPlaylist([]);
+            setCurrentMedia(null);
+            setPhase('activation');
+          }
+        }
+      )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'schedules' },
@@ -586,6 +636,16 @@ export default function PlayerPage() {
           showControls ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 -translate-y-2 pointer-events-none'
         }`}
       >
+        {/* Reset Device Button */}
+        <button
+          onClick={handleResetDevice}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-bold border border-red-500/30 transition-all active:scale-95"
+          title="Reset Koneksi Perangkat Ini"
+        >
+          <LogOut className="w-3.5 h-3.5 text-red-400" />
+          <span className="hidden sm:inline">Reset Perangkat</span>
+        </button>
+
         {/* Fullscreen Button */}
         <button
           onClick={toggleFullscreen}
