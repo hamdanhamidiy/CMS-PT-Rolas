@@ -3,6 +3,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Media, PlaylistItem } from '@/lib/types';
+import Logo from '@/components/shared/Logo';
+import { Tv, KeyRound, Loader2, Sparkles } from 'lucide-react';
 
 // ============================================
 // Constants
@@ -10,18 +12,6 @@ import type { Media, PlaylistItem } from '@/lib/types';
 const HEARTBEAT_INTERVAL = 30000; // 30 seconds
 const DEVICE_TOKEN_KEY = 'signage_device_token';
 const SCREEN_ID_KEY = 'signage_screen_id';
-
-// ============================================
-// Types
-// ============================================
-interface ActiveSchedule {
-  id: string;
-  mode: string;
-  priority: number;
-  playlist_id: string;
-  start_time: string;
-  end_time: string;
-}
 
 export default function PlayerPage() {
   const [phase, setPhase] = useState<'activation' | 'loading' | 'playing'>('activation');
@@ -46,7 +36,6 @@ export default function PlayerPage() {
     const savedToken = localStorage.getItem(DEVICE_TOKEN_KEY);
 
     if (savedScreenId && savedToken) {
-      // Verify the token is still valid
       verifyToken(savedScreenId, savedToken);
     }
   }, []);
@@ -65,14 +54,12 @@ export default function PlayerPage() {
     if (data) {
       setScreenId(data.id);
       setScreenName(data.name);
-      // Update status to online
       await supabase
         .from('screens')
         .update({ status: 'online', last_seen: new Date().toISOString() })
         .eq('id', data.id);
       loadScheduleAndPlay(data.id);
     } else {
-      // Token invalid, clear and show activation
       localStorage.removeItem(SCREEN_ID_KEY);
       localStorage.removeItem(DEVICE_TOKEN_KEY);
       setPhase('activation');
@@ -92,7 +79,6 @@ export default function PlayerPage() {
     setActivationError('');
     const supabase = createClient();
 
-    // Find valid activation code
     const { data: activation } = await supabase
       .from('screen_activations')
       .select('*, screen:screens(*)')
@@ -107,16 +93,13 @@ export default function PlayerPage() {
       return;
     }
 
-    // Generate device token
     const deviceToken = `dev_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
-    // Mark activation as used
     await supabase
       .from('screen_activations')
       .update({ used_at: new Date().toISOString() })
       .eq('id', activation.id);
 
-    // Update screen with device token and set online
     await supabase
       .from('screens')
       .update({
@@ -126,7 +109,6 @@ export default function PlayerPage() {
       })
       .eq('id', activation.screen_id);
 
-    // Save to localStorage
     localStorage.setItem(SCREEN_ID_KEY, activation.screen_id);
     localStorage.setItem(DEVICE_TOKEN_KEY, deviceToken);
 
@@ -134,7 +116,6 @@ export default function PlayerPage() {
     setScreenName(activation.screen?.name || '');
     setActivating(false);
 
-    // Start playing
     loadScheduleAndPlay(activation.screen_id);
   };
 
@@ -149,7 +130,6 @@ export default function PlayerPage() {
     const today = now.toISOString().split('T')[0];
     const currentTime = now.toTimeString().slice(0, 5); // HH:MM
 
-    // Get active schedules for this screen
     const { data: scheduleScreens } = await supabase
       .from('schedule_screens')
       .select('schedule_id')
@@ -184,10 +164,8 @@ export default function PlayerPage() {
       return;
     }
 
-    // Pick highest priority schedule (promosi > normal at same priority)
     const activeSchedule = schedules[0];
 
-    // Load playlist items
     const { data: items } = await supabase
       .from('playlist_items')
       .select('*, media(*)')
@@ -219,11 +197,9 @@ export default function PlayerPage() {
     if (!currentMedia || phase !== 'playing') return;
 
     if (currentMedia.media_type === 'image') {
-      // Display image for duration (default 10 seconds)
       const timeout = setTimeout(playNext, (currentMedia.duration || 10) * 1000);
       return () => clearTimeout(timeout);
     }
-    // Video will call playNext via onEnded
   }, [currentMedia, phase, playNext]);
 
   // ============================================
@@ -261,7 +237,6 @@ export default function PlayerPage() {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'schedules' },
         () => {
-          // Reload schedule when any schedule changes
           loadScheduleAndPlay(sid);
         }
       )
@@ -283,32 +258,34 @@ export default function PlayerPage() {
   }, []);
 
   // ============================================
-  // RENDER: Activation Screen
+  // RENDER: Corporate Clean Activation Screen
   // ============================================
   if (phase === 'activation') {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-[#0B1426] to-[#1A2744] flex items-center justify-center p-6">
-        <div className="w-full max-w-md text-center animate-fade-in">
-          {/* Logo */}
-          <div className="mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-[var(--color-primary)] flex items-center justify-center mx-auto mb-4">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="3" width="20" height="14" rx="2" />
-                <path d="M8 21h8" />
-                <path d="M12 17v4" />
-                <polygon points="10 8 16 11 10 14 10 8" fill="white" stroke="none" />
-              </svg>
+      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-6 text-slate-900 font-sans">
+        <div className="w-full max-w-md space-y-6">
+          
+          {/* Logo Header */}
+          <div className="flex flex-col items-center text-center">
+            <div className="p-3 bg-white rounded-2xl border border-slate-200/80 shadow-2xs mb-3">
+              <Logo />
             </div>
-            <h1 className="text-2xl font-bold text-white">Digital Signage</h1>
-            <p className="text-sm text-gray-400 mt-1">PT Rolas Nusantara Medika</p>
+            <p className="text-xs font-semibold text-slate-500 tracking-wide uppercase">
+              Web Player Signage
+            </p>
           </div>
 
-          {/* Activation Form */}
-          <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-8 border border-white/10">
-            <h2 className="text-lg font-semibold text-white mb-1">Aktivasi Layar</h2>
-            <p className="text-sm text-gray-400 mb-6">
-              Masukkan kode 6 digit dari Dashboard Admin
-            </p>
+          {/* Activation Card */}
+          <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-xl space-y-6">
+            <div className="text-center space-y-1">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-2">
+                <KeyRound className="w-5 h-5" />
+              </div>
+              <h2 className="text-base font-bold text-slate-900">Aktivasi Perangkat Layar</h2>
+              <p className="text-xs text-slate-500 font-normal max-w-xs mx-auto">
+                Masukkan 6 angka kode aktivasi dari Dashboard Admin (<code className="text-blue-600 font-semibold">/screens</code>)
+              </p>
+            </div>
 
             <div className="space-y-4">
               <input
@@ -321,26 +298,43 @@ export default function PlayerPage() {
                   setActivationError('');
                 }}
                 placeholder="000000"
-                className="w-full text-center text-4xl tracking-[0.4em] font-mono font-bold bg-white/10 border border-white/20 rounded-xl px-6 py-4 text-white placeholder-gray-600 focus:outline-none focus:border-[var(--color-primary)] transition-colors"
+                className="w-full text-center text-3xl tracking-[0.4em] font-mono font-bold bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-slate-900 placeholder-slate-300 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
                 autoFocus
               />
 
               {activationError && (
-                <p className="text-sm text-red-400">{activationError}</p>
+                <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-600 text-xs font-medium text-center">
+                  {activationError}
+                </div>
               )}
 
               <button
                 onClick={handleActivate}
                 disabled={activationCode.length !== 6 || activating}
-                className="w-full py-3 px-6 rounded-xl bg-[var(--color-primary)] hover:bg-[var(--color-primary-light)] text-white font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-3 px-6 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs flex items-center justify-center gap-2"
               >
-                {activating ? 'Mengaktifkan...' : 'Aktifkan'}
+                {activating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Menghubungkan Perangkat...</span>
+                  </>
+                ) : (
+                  <>
+                    <Tv className="w-4 h-4" />
+                    <span>Aktifkan Layar Ini</span>
+                  </>
+                )}
               </button>
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
+              <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+              <span>Otomatis terhubung & tayang real-time</span>
             </div>
           </div>
 
-          <p className="text-[11px] text-gray-600 mt-6">
-            © {new Date().getFullYear()} PT Rolas Nusantara Medika
+          <p className="text-[11px] text-center text-slate-400 font-normal">
+            © {new Date().getFullYear()} PT Rolas Nusantara Medika • Digital Signage System
           </p>
         </div>
       </div>
@@ -348,37 +342,39 @@ export default function PlayerPage() {
   }
 
   // ============================================
-  // RENDER: Loading
+  // RENDER: Loading State
   // ============================================
   if (phase === 'loading') {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center animate-fade-in">
-          <div className="w-10 h-10 border-2 border-white/20 border-t-white rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-white/60 text-sm">Memuat jadwal...</p>
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <Loader2 className="w-8 h-8 text-white animate-spin mx-auto" />
+          <p className="text-white/70 text-xs font-medium tracking-wide">Memuat Jadwal & Rotasi Media...</p>
         </div>
       </div>
     );
   }
 
   // ============================================
-  // RENDER: Player (Fullscreen)
+  // RENDER: Fullscreen Player
   // ============================================
   return (
     <div className="player-fullscreen">
       {playlist.length === 0 || !currentMedia ? (
-        // No content — standby screen
-        <div className="w-full h-full flex items-center justify-center bg-gradient-to-b from-[#0B1426] to-[#1A2744]">
-          <div className="text-center animate-fade-in">
-            <div className="w-16 h-16 rounded-2xl bg-[var(--color-primary)]/20 flex items-center justify-center mx-auto mb-4">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="2" y="3" width="20" height="14" rx="2" />
-                <path d="M8 21h8" />
-                <path d="M12 17v4" />
-              </svg>
+        // No content — Corporate standby screen
+        <div className="w-full h-full flex items-center justify-center bg-slate-950 text-white p-6">
+          <div className="text-center space-y-3 max-w-sm">
+            <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center mx-auto">
+              <Tv className="w-7 h-7 text-blue-400" />
             </div>
-            <p className="text-white/40 text-sm">{screenName || 'Digital Signage'}</p>
-            <p className="text-white/20 text-xs mt-1">Menunggu jadwal tayang...</p>
+            <div>
+              <p className="text-base font-bold text-white">{screenName || 'Digital Signage Player'}</p>
+              <p className="text-xs text-slate-400 font-medium mt-1">Perangkat Online — Menunggu Jadwal Tayang</p>
+            </div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Siap Memutar Konten Real-Time
+            </div>
           </div>
         </div>
       ) : currentMedia.media_type === 'video' ? (
