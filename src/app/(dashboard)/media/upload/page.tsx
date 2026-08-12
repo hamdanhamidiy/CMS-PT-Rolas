@@ -131,10 +131,30 @@ export default function UploadMediaPage() {
         duration = await getVideoDuration(file);
       }
 
-      // 4. Insert into database
+      // 4. Insert into database with profile safety fallback
       const { data: { user } } = await supabase.auth.getUser();
 
-      const { error: dbError } = await supabase.from('media').insert({
+      let createdBy: string | null = null;
+      if (user) {
+        // Ensure profile exists in profiles table
+        const { data: existingProfile } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('id', user.id)
+          .single();
+
+        if (!existingProfile) {
+          await supabase.from('profiles').upsert({
+            id: user.id,
+            email: user.email || 'admin@rolasmedika.co.id',
+            full_name: user.user_metadata?.full_name || 'Admin User',
+            role: 'admin',
+          });
+        }
+        createdBy = user.id;
+      }
+
+      let { error: dbError } = await supabase.from('media').insert({
         title: title.trim(),
         description: description.trim() || null,
         file_url: urlData.publicUrl,
@@ -142,8 +162,23 @@ export default function UploadMediaPage() {
         media_type: file.type.startsWith('video/') ? 'video' : 'image',
         duration,
         file_size: file.size,
-        created_by: user?.id,
+        created_by: createdBy,
       });
+
+      // Retry with created_by = null if foreign key constraint failed
+      if (dbError && dbError.message.includes('foreign key constraint')) {
+        const { error: retryError } = await supabase.from('media').insert({
+          title: title.trim(),
+          description: description.trim() || null,
+          file_url: urlData.publicUrl,
+          file_name: file.name,
+          media_type: file.type.startsWith('video/') ? 'video' : 'image',
+          duration,
+          file_size: file.size,
+          created_by: null,
+        });
+        dbError = retryError;
+      }
 
       if (dbError) {
         toast.error('Gagal menyimpan metadata', { description: dbError.message });
@@ -152,13 +187,13 @@ export default function UploadMediaPage() {
       }
 
       // 5. Log activity
-      if (user) {
+      if (user && createdBy) {
         await supabase.from('activity_logs').insert({
-          user_id: user.id,
+          user_id: createdBy,
           action: 'upload_media',
           entity_type: 'media',
           details: `Upload media: ${title.trim()}`,
-        });
+        }).catch(() => {});
       }
 
       setProgress(100);
