@@ -90,3 +90,26 @@ export function getStatusColor(status: string): string {
       return 'bg-gray-400';
   }
 }
+
+export async function ensureUserProfile(supabase: any, user: any): Promise<string | null> {
+  if (!user) return null;
+  try {
+    const { data: existing } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', user.id)
+      .single();
+
+    if (!existing) {
+      await supabase.from('profiles').upsert({
+        id: user.id,
+        email: user.email || 'admin@rolasmedika.co.id',
+        full_name: user.user_metadata?.full_name || 'Admin User',
+        role: 'admin',
+      });
+    }
+    return user.id;
+  } catch {
+    return null;
+  }
+}

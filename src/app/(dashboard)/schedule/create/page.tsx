@@ -17,6 +17,7 @@ import { ArrowLeft, Save, Loader2, MonitorPlay, Info, CalendarClock, Sparkles, C
 import Link from 'next/link';
 import type { Playlist, Screen } from '@/lib/types';
 import { toast } from 'sonner';
+import { ensureUserProfile } from '@/lib/utils';
 
 export default function CreateSchedulePage() {
   const router = useRouter();
@@ -84,7 +85,9 @@ export default function CreateSchedulePage() {
     const { data: { user } } = await supabase.auth.getUser();
 
     // 1. Create schedule
-    const { data: schedule, error } = await supabase
+    const createdBy = await ensureUserProfile(supabase, user);
+
+    let { data: schedule, error } = await supabase
       .from('schedules')
       .insert({
         name: name.trim(),
@@ -96,13 +99,36 @@ export default function CreateSchedulePage() {
         start_time: startTime,
         end_time: endTime,
         status: 'draft',
-        created_by: user?.id,
+        created_by: createdBy,
       })
       .select()
       .single();
 
+    // Retry with created_by = null if foreign key constraint failed
+    if (error && error.message.includes('foreign key constraint')) {
+      const { data: retrySched, error: retryErr } = await supabase
+        .from('schedules')
+        .insert({
+          name: name.trim(),
+          playlist_id: playlistId,
+          mode,
+          priority,
+          start_date: startDate,
+          end_date: endDate,
+          start_time: startTime,
+          end_time: endTime,
+          status: 'draft',
+          created_by: null,
+        })
+        .select()
+        .single();
+
+      schedule = retrySched;
+      error = retryErr;
+    }
+
     if (error || !schedule) {
-      toast.error('Gagal membuat jadwal');
+      toast.error('Gagal membuat jadwal', { description: error?.message });
       setSaving(false);
       return;
     }
@@ -116,14 +142,18 @@ export default function CreateSchedulePage() {
     await supabase.from('schedule_screens').insert(screenAssignments);
 
     // 3. Log activity
-    if (user) {
-      await supabase.from('activity_logs').insert({
-        user_id: user.id,
-        action: 'create_schedule',
-        entity_type: 'schedule',
-        entity_id: schedule.id,
-        details: `Membuat jadwal: ${name.trim()} (${mode}, ${selectedScreens.length} layar)`,
-      });
+    if (user && createdBy) {
+      try {
+        await supabase.from('activity_logs').insert({
+          user_id: createdBy,
+          action: 'create_schedule',
+          entity_type: 'schedule',
+          entity_id: schedule.id,
+          details: `Membuat jadwal: ${name.trim()} (${mode}, ${selectedScreens.length} layar)`,
+        });
+      } catch {
+        // Ignore activity log error
+      }
     }
 
     toast.success('Jadwal berhasil dibuat');

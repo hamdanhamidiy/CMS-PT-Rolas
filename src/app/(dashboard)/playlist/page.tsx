@@ -39,7 +39,7 @@ import Link from 'next/link';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { Playlist } from '@/lib/types';
-import { formatDateTime } from '@/lib/utils';
+import { formatDateTime, ensureUserProfile } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function PlaylistPage() {
@@ -78,31 +78,54 @@ export default function PlaylistPage() {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
-    const { data, error } = await supabase
+    const createdBy = await ensureUserProfile(supabase, user);
+
+    let { data, error } = await supabase
       .from('playlists')
       .insert({
         name: newName.trim(),
         description: newDesc.trim() || null,
         status: 'draft',
-        created_by: user?.id,
+        created_by: createdBy,
       })
       .select()
       .single();
 
-    if (error) {
-      toast.error('Gagal membuat playlist');
+    // Fallback if foreign key constraint failed
+    if (error && error.message.includes('foreign key constraint')) {
+      const { data: retryData, error: retryErr } = await supabase
+        .from('playlists')
+        .insert({
+          name: newName.trim(),
+          description: newDesc.trim() || null,
+          status: 'draft',
+          created_by: null,
+        })
+        .select()
+        .single();
+
+      data = retryData;
+      error = retryErr;
+    }
+
+    if (error || !data) {
+      toast.error('Gagal membuat playlist', { description: error?.message });
       setCreating(false);
       return;
     }
 
-    if (user) {
-      await supabase.from('activity_logs').insert({
-        user_id: user.id,
-        action: 'create_playlist',
-        entity_type: 'playlist',
-        entity_id: data.id,
-        details: `Membuat playlist: ${newName.trim()}`,
-      });
+    if (user && createdBy) {
+      try {
+        await supabase.from('activity_logs').insert({
+          user_id: createdBy,
+          action: 'create_playlist',
+          entity_type: 'playlist',
+          entity_id: data.id,
+          details: `Membuat playlist: ${newName.trim()}`,
+        });
+      } catch {
+        // Ignore activity log error
+      }
     }
 
     toast.success('Playlist berhasil dibuat');
