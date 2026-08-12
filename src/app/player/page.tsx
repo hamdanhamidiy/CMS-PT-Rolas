@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Media, PlaylistItem } from '@/lib/types';
 import Logo from '@/components/shared/Logo';
-import { Tv, KeyRound, Loader2, Sparkles } from 'lucide-react';
+import { Tv, KeyRound, Loader2, Sparkles, Maximize, Minimize, Expand, RefreshCw } from 'lucide-react';
 
 // ============================================
 // Constants
@@ -29,6 +29,12 @@ export default function PlayerPage() {
   const [currentMedia, setCurrentMedia] = useState<Media | null>(null);
   const [playCount, setPlayCount] = useState(0); // Tracks iteration count for 1-item playlists
 
+  // Display Customization State
+  const [fitMode, setFitMode] = useState<'contain' | 'cover' | 'fill'>('contain');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
   const activeScheduleIdRef = useRef<string | null>(null);
@@ -37,6 +43,64 @@ export default function PlayerPage() {
   useEffect(() => {
     activeScheduleIdRef.current = activeScheduleId;
   }, [activeScheduleId]);
+
+  // Auto-hide floating controls after inactivity
+  const handleUserActivity = () => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    controlsTimeoutRef.current = setTimeout(() => {
+      setShowControls(false);
+    }, 4000);
+  };
+
+  useEffect(() => {
+    window.addEventListener('mousemove', handleUserActivity);
+    window.addEventListener('touchstart', handleUserActivity);
+    return () => {
+      window.removeEventListener('mousemove', handleUserActivity);
+      window.removeEventListener('touchstart', handleUserActivity);
+      if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
+    };
+  }, []);
+
+  // Listen for native fullscreen change events
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        if (document.documentElement.requestFullscreen) {
+          await document.documentElement.requestFullscreen();
+        } else if ((document.documentElement as any).webkitRequestFullscreen) {
+          await (document.documentElement as any).webkitRequestFullscreen();
+        }
+        setIsFullscreen(true);
+      } else {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if ((document as any).webkitExitFullscreen) {
+          await (document as any).webkitExitFullscreen();
+        }
+        setIsFullscreen(false);
+      }
+    } catch {
+      // Ignore fullscreen API denial
+    }
+  };
+
+  const cycleFitMode = () => {
+    setFitMode((prev) => {
+      if (prev === 'contain') return 'cover';
+      if (prev === 'cover') return 'fill';
+      return 'contain';
+    });
+  };
 
   // ============================================
   // Check for existing device token on mount
@@ -357,6 +421,14 @@ export default function PlayerPage() {
     };
   }, []);
 
+  // Class for Object-Fit Aspect Ratio
+  const fitClass =
+    fitMode === 'cover'
+      ? 'object-cover'
+      : fitMode === 'fill'
+      ? 'object-fill'
+      : 'object-contain';
+
   // ============================================
   // RENDER: Corporate Clean Activation Screen
   // ============================================
@@ -459,7 +531,45 @@ export default function PlayerPage() {
   // RENDER: Fullscreen Player
   // ============================================
   return (
-    <div className="player-fullscreen">
+    <div className="relative w-screen h-screen overflow-hidden bg-black select-none">
+      
+      {/* ── FLOATING AUTO-HIDE PLAYER CONTROL BAR ── */}
+      <div
+        className={`fixed top-4 right-4 z-50 flex items-center gap-2 bg-slate-950/80 backdrop-blur-md border border-white/15 p-2 rounded-2xl text-white shadow-2xl transition-all duration-300 ${
+          showControls ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 -translate-y-2 pointer-events-none'
+        }`}
+      >
+        {/* Fullscreen Button */}
+        <button
+          onClick={toggleFullscreen}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all active:scale-95"
+          title="Mode Presentasi Layar Penuh"
+        >
+          {isFullscreen ? (
+            <>
+              <Minimize className="w-3.5 h-3.5 text-blue-400" />
+              <span className="hidden sm:inline">Keluar Fullscreen</span>
+            </>
+          ) : (
+            <>
+              <Maximize className="w-3.5 h-3.5 text-blue-400" />
+              <span>Full Screen</span>
+            </>
+          )}
+        </button>
+
+        {/* Aspect Ratio Mode Cycle Button */}
+        <button
+          onClick={cycleFitMode}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all active:scale-95"
+          title="Ubah Aspek Rasio (Fit / Cover / Fill)"
+        >
+          <Expand className="w-3.5 h-3.5 text-amber-400" />
+          <span className="capitalize">{fitMode === 'contain' ? 'Fit (Proporsional)' : fitMode === 'cover' ? 'Penuhi Layar (Cover)' : 'Stretch (Fill)'}</span>
+        </button>
+      </div>
+
+      {/* ── MEDIA PLAYBACK CONTENT ── */}
       {playlist.length === 0 || !currentMedia ? (
         // No content — Corporate standby screen
         <div className="w-full h-full flex items-center justify-center bg-slate-950 text-white p-6">
@@ -488,13 +598,13 @@ export default function PlayerPage() {
           preload="auto"
           onEnded={playNext}
           onError={playNext}
-          className="w-full h-full object-contain"
+          className={`w-full h-full ${fitClass}`}
         />
       ) : (
         <img
           src={currentMedia.file_url}
           alt={currentMedia.title}
-          className="w-full h-full object-contain"
+          className={`w-full h-full ${fitClass}`}
         />
       )}
     </div>
