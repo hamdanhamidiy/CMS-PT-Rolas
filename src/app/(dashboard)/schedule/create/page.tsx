@@ -7,13 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { ArrowLeft, Save, Loader2, MonitorPlay, Info, CalendarClock, Sparkles, CheckCircle2 } from 'lucide-react';
+  ArrowLeft,
+  Save,
+  Loader2,
+  MonitorPlay,
+  Info,
+  CalendarClock,
+  ChevronDown,
+} from 'lucide-react';
 import Link from 'next/link';
 import type { Playlist, Screen } from '@/lib/types';
 import { toast } from 'sonner';
@@ -46,7 +47,11 @@ export default function CreateSchedulePage() {
       supabase.from('playlists').select('*').in('status', ['draft', 'active']).order('name'),
       supabase.from('screens').select('*').order('name'),
     ]);
-    setPlaylists(playlistRes.data || []);
+    const plList = playlistRes.data || [];
+    setPlaylists(plList);
+    if (plList.length > 0) {
+      setPlaylistId(plList[0].id);
+    }
     setScreens(screenRes.data || []);
     setLoading(false);
 
@@ -210,43 +215,51 @@ export default function CreateSchedulePage() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Contoh: Jadwal Penyiaran Promo Pagi Lobby"
-                className="h-10 text-xs rounded-xl bg-slate-50/60 border-slate-200/80 focus:bg-white"
+                className="h-10 text-xs font-semibold rounded-xl bg-slate-50/60 border-slate-200/80 focus:bg-white"
                 required
               />
             </div>
 
             {/* Playlist Selection */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-slate-800">
+              <Label htmlFor="target-playlist" className="text-xs font-bold text-slate-800">
                 Target Playlist <span className="text-red-500">*</span>
               </Label>
-              <Select value={playlistId} onValueChange={(v) => v && setPlaylistId(v)}>
-                <SelectTrigger className="h-10 text-xs rounded-xl bg-slate-50/60 border-slate-200/80 focus:bg-white">
-                  <SelectValue placeholder="Pilih playlist yang akan ditayangkan..." />
-                </SelectTrigger>
-                <SelectContent className="rounded-xl border-slate-200">
+              <div className="relative">
+                <select
+                  id="target-playlist"
+                  value={playlistId}
+                  onChange={(e) => setPlaylistId(e.target.value)}
+                  className="w-full h-10 px-3.5 pr-8 text-xs font-bold text-slate-900 bg-slate-50/60 border border-slate-200/80 rounded-xl focus:bg-white focus:border-blue-500 focus:outline-none appearance-none transition-all cursor-pointer"
+                  required
+                >
+                  <option value="" disabled>Pilih playlist yang akan ditayangkan...</option>
                   {playlists.map((p) => (
-                    <SelectItem key={p.id} value={p.id} className="text-xs">
+                    <option key={p.id} value={p.id}>
                       {p.name} ({p.status})
-                    </SelectItem>
+                    </option>
                   ))}
-                </SelectContent>
-              </Select>
+                </select>
+                <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
             </div>
 
             {/* Mode & Priority */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
               <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-slate-800">Mode Tayang</Label>
-                <Select value={mode} onValueChange={(v) => v && setMode(v as 'normal' | 'promosi')}>
-                  <SelectTrigger className="h-10 text-xs rounded-xl bg-slate-50/60 border-slate-200/80 focus:bg-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl border-slate-200">
-                    <SelectItem value="normal" className="text-xs">Normal / Pelayanan (Reguler)</SelectItem>
-                    <SelectItem value="promosi" className="text-xs">Promosi Special (Mengambil Alih Layar)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Label htmlFor="mode-tayang" className="text-xs font-bold text-slate-800">Mode Tayang</Label>
+                <div className="relative">
+                  <select
+                    id="mode-tayang"
+                    value={mode}
+                    onChange={(e) => setMode(e.target.value as 'normal' | 'promosi')}
+                    className="w-full h-10 px-3.5 pr-8 text-xs font-bold text-slate-900 bg-slate-50/60 border border-slate-200/80 rounded-xl focus:bg-white focus:border-blue-500 focus:outline-none appearance-none transition-all cursor-pointer"
+                  >
+                    <option value="normal">Normal / Pelayanan (Reguler)</option>
+                    <option value="promosi">Promosi Special (Mengambil Alih Layar)</option>
+                  </select>
+                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -258,7 +271,7 @@ export default function CreateSchedulePage() {
                   max={10}
                   value={priority}
                   onChange={(e) => setPriority(parseInt(e.target.value) || 1)}
-                  className="h-10 text-xs rounded-xl bg-slate-50/60 border-slate-200/80 focus:bg-white"
+                  className="h-10 text-xs font-semibold rounded-xl bg-slate-50/60 border-slate-200/80 focus:bg-white"
                 />
               </div>
             </div>
