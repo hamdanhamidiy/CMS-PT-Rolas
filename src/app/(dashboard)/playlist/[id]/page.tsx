@@ -256,18 +256,7 @@ export default function PlaylistEditorPage() {
         </div>
       </div>
 
-      {/* ── Operational Explanation Box ── */}
-      <div className="bg-gradient-to-r from-blue-50/80 via-slate-50 to-indigo-50/60 rounded-xl p-4 border border-blue-100/80 shadow-2xs space-y-2">
-        <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
-          <Info className="w-4 h-4 text-blue-600 flex-shrink-0" />
-          <span>Sistem Rotasi Penyiaran Otomatis (Infinite Looping)</span>
-        </div>
-        <p className="text-xs text-slate-600 leading-relaxed">
-          Media di dalam playlist ini akan ditayangkan secara berurutan dari slide #1 hingga #{items.length || 1}. 
-          Setiap 1 putaran penuh memakan waktu <strong className="font-bold text-slate-900">{formatDuration(totalLoopDuration)}</strong>, 
-          dan akan <strong className="font-bold text-slate-900">otomatis diulang secara menerus (looping)</strong> sampai batas jam penyiaran agenda selesai.
-        </p>
-      </div>
+
 
       {/* ── Items Container ── */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
