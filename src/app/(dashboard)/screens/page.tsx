@@ -373,23 +373,23 @@ export default function ScreensPage() {
                     <td className="px-6 py-3.5 text-xs text-slate-500 font-normal">
                       {screen.last_seen ? getRelativeTime(screen.last_seen) : '—'}
                     </td>
-                    <td className="px-6 py-3.5 text-right">
+                    <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
                           onClick={() => generateCode(screen)}
-                          className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-900 text-slate-700 hover:text-white text-xs font-semibold transition-all flex items-center gap-1.5"
+                          className="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-2xs transition-all flex items-center gap-1.5 active:scale-95"
                         >
-                          <KeyRound className="w-3.5 h-3.5" />
-                          Kode Aktivasi
+                          <KeyRound className="w-3.5 h-3.5 text-blue-400" />
+                          <span>Kode Aktivasi</span>
                         </button>
 
                         <DropdownMenu>
-                          <DropdownMenuTrigger className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
+                          <DropdownMenuTrigger className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-900 hover:text-white hover:border-slate-900 text-slate-600 shadow-2xs transition-all active:scale-95">
                             <MoreVertical className="w-4 h-4" />
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48 rounded-xl border-slate-200">
+                          <DropdownMenuContent align="end" side="bottom" sideOffset={6} className="w-52 rounded-xl bg-white border border-slate-200/90 shadow-xl p-1.5 space-y-1 z-[100]">
                             <DropdownMenuItem
-                              className="text-xs"
+                              className="text-xs font-medium px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 hover:bg-slate-100 text-slate-800 transition-colors"
                               onClick={() => {
                                 setSelectedScreen(screen);
                                 setNewName(screen.name);
@@ -398,29 +398,29 @@ export default function ScreensPage() {
                                 setShowEdit(true);
                               }}
                             >
-                              <Edit className="w-3.5 h-3.5 mr-2" />
-                              Edit Informasi
+                              <Edit className="w-3.5 h-3.5 text-blue-600" />
+                              <span>Edit Informasi</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              className="text-xs"
+                              className="text-xs font-medium px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 hover:bg-amber-50 text-amber-900 transition-colors"
                               onClick={() => {
                                 setSelectedScreen(screen);
                                 setShowReset(true);
                               }}
                             >
-                              <RotateCcw className="w-3.5 h-3.5 mr-2" />
-                              Reset Koneksi
+                              <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Reset Koneksi Layar</span>
                             </DropdownMenuItem>
-                            <DropdownMenuSeparator />
+                            <DropdownMenuSeparator className="my-1 bg-slate-100" />
                             <DropdownMenuItem
-                              className="text-xs text-red-600 focus:text-red-600 focus:bg-red-50"
+                              className="text-xs font-semibold px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 hover:bg-red-50 text-red-600 transition-colors"
                               onClick={() => {
                                 setSelectedScreen(screen);
                                 setShowDelete(true);
                               }}
                             >
-                              <Trash2 className="w-3.5 h-3.5 mr-2" />
-                              Hapus Layar
+                              <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                              <span>Hapus Layar</span>
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -454,12 +454,12 @@ export default function ScreensPage() {
                   </div>
 
                   <DropdownMenu>
-                    <DropdownMenuTrigger className="p-1 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors">
+                    <DropdownMenuTrigger className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-900 hover:text-white hover:border-slate-900 text-slate-600 shadow-2xs transition-all active:scale-95">
                       <MoreVertical className="w-4 h-4" />
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48 rounded-xl border-slate-200">
+                    <DropdownMenuContent align="end" side="bottom" sideOffset={6} className="w-52 rounded-xl bg-white border border-slate-200/90 shadow-xl p-1.5 space-y-1 z-[100]">
                       <DropdownMenuItem
-                        className="text-xs"
+                        className="text-xs font-medium px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 hover:bg-slate-100 text-slate-800 transition-colors"
                         onClick={() => {
                           setSelectedScreen(screen);
                           setNewName(screen.name);
@@ -468,29 +468,29 @@ export default function ScreensPage() {
                           setShowEdit(true);
                         }}
                       >
-                        <Edit className="w-3.5 h-3.5 mr-2" />
-                        Edit Informasi
+                        <Edit className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Edit Informasi</span>
                       </DropdownMenuItem>
                       <DropdownMenuItem
-                        className="text-xs"
+                        className="text-xs font-medium px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 hover:bg-amber-50 text-amber-900 transition-colors"
                         onClick={() => {
                           setSelectedScreen(screen);
                           setShowReset(true);
                         }}
                       >
-                        <RotateCcw className="w-3.5 h-3.5 mr-2" />
-                        Reset Koneksi
+                        <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Reset Koneksi Layar</span>
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator />
+                      <DropdownMenuSeparator className="my-1 bg-slate-100" />
                       <DropdownMenuItem
-                        className="text-xs text-red-600 focus:text-red-600 focus:bg-red-50"
+                        className="text-xs font-semibold px-3 py-2 rounded-lg cursor-pointer flex items-center gap-2 hover:bg-red-50 text-red-600 transition-colors"
                         onClick={() => {
                           setSelectedScreen(screen);
                           setShowDelete(true);
                         }}
                       >
-                        <Trash2 className="w-3.5 h-3.5 mr-2" />
-                        Hapus Layar
+                        <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                        <span>Hapus Layar</span>
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
