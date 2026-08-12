@@ -3,6 +3,24 @@
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   CalendarClock,
   Plus,
@@ -17,36 +35,61 @@ import {
   Calendar,
   MonitorPlay,
   Sparkles,
-  ArrowRight,
   CheckCircle2,
+  Edit3,
+  Trash2,
+  ChevronDown,
 } from 'lucide-react';
 import Link from 'next/link';
-import type { Schedule } from '@/lib/types';
-import { formatDate, formatTime } from '@/lib/utils';
+import type { Schedule, Playlist } from '@/lib/types';
+import { formatDate, formatTime, ensureUserProfile } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function SchedulePage() {
   const [loading, setLoading] = useState(true);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState<'all' | 'active' | 'draft' | 'completed'>('all');
+  const [filter, setFilter] = useState<'all' | 'active' | 'draft' | 'cancelled'>('all');
+
+  // Edit Modal State
+  const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editPlaylistId, setEditPlaylistId] = useState('');
+  const [editMode, setEditMode] = useState<'normal' | 'promosi'>('normal');
+  const [editPriority, setEditPriority] = useState(1);
+  const [editStartDate, setEditStartDate] = useState('');
+  const [editEndDate, setEditEndDate] = useState('');
+  const [editStartTime, setEditStartTime] = useState('08:00');
+  const [editEndTime, setEditEndTime] = useState('17:00');
+  const [editStatus, setEditStatus] = useState<'draft' | 'active' | 'cancelled'>('draft');
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  // Delete Dialog State
+  const [deletingSchedule, setDeletingSchedule] = useState<Schedule | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    loadSchedules();
+    loadData();
   }, []);
 
-  const loadSchedules = async () => {
+  const loadData = async () => {
     const supabase = createClient();
-    const { data } = await supabase
-      .from('schedules')
-      .select('*, playlist:playlists(name), schedule_screens(screen_id)')
-      .order('created_at', { ascending: false });
+    const [schedRes, playRes] = await Promise.all([
+      supabase
+        .from('schedules')
+        .select('*, playlist:playlists(name), schedule_screens(screen_id)')
+        .order('created_at', { ascending: false }),
+      supabase.from('playlists').select('*').order('name'),
+    ]);
 
-    setSchedules(data || []);
+    setSchedules(schedRes.data || []);
+    setPlaylists(playRes.data || []);
     setLoading(false);
   };
 
-  const handleStatusChange = async (schedule: Schedule, newStatus: string) => {
+  // ── UPDATE: Quick Status Toggle ──
+  const handleStatusChange = async (schedule: Schedule, newStatus: 'active' | 'draft' | 'cancelled') => {
     const supabase = createClient();
     const { error } = await supabase
       .from('schedules')
@@ -54,23 +97,140 @@ export default function SchedulePage() {
       .eq('id', schedule.id);
 
     if (error) {
-      toast.error('Gagal mengubah status');
+      toast.error('Gagal mengubah status', { description: error.message });
       return;
     }
 
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      await supabase.from('activity_logs').insert({
-        user_id: user.id,
-        action: newStatus === 'active' ? 'publish_schedule' : 'cancel_schedule',
-        entity_type: 'schedule',
-        entity_id: schedule.id,
-        details: `${newStatus === 'active' ? 'Publish' : 'Cancel'} jadwal: ${schedule.name}`,
-      });
+      try {
+        const userId = await ensureUserProfile(supabase, user);
+        if (userId) {
+          await supabase.from('activity_logs').insert({
+            user_id: userId,
+            action: `${newStatus}_schedule`,
+            entity_type: 'schedule',
+            entity_id: schedule.id,
+            details: `Ubah status jadwal '${schedule.name}' menjadi ${newStatus}`,
+          });
+        }
+      } catch {
+        // Ignore
+      }
     }
 
-    toast.success(`Jadwal berhasil di-${newStatus === 'active' ? 'publish' : 'cancel'}`);
-    loadSchedules();
+    toast.success(`Jadwal diubah menjadi ${newStatus.toUpperCase()}`);
+    loadData();
+  };
+
+  // ── UPDATE: Open Edit Modal ──
+  const openEditModal = (schedule: Schedule) => {
+    setEditingSchedule(schedule);
+    setEditName(schedule.name);
+    setEditPlaylistId(schedule.playlist_id);
+    setEditMode(schedule.mode);
+    setEditPriority(schedule.priority || 1);
+    setEditStartDate(schedule.start_date);
+    setEditEndDate(schedule.end_date);
+    setEditStartTime(schedule.start_time);
+    setEditEndTime(schedule.end_time);
+    setEditStatus(schedule.status as any);
+  };
+
+  // ── UPDATE: Save Edit ──
+  const handleSaveEdit = async () => {
+    if (!editingSchedule || !editName.trim() || !editPlaylistId) {
+      toast.error('Lengkapi formulir edit');
+      return;
+    }
+
+    setSavingEdit(true);
+    const supabase = createClient();
+
+    const { error } = await supabase
+      .from('schedules')
+      .update({
+        name: editName.trim(),
+        playlist_id: editPlaylistId,
+        mode: editMode,
+        priority: editPriority,
+        start_date: editStartDate,
+        end_date: editEndDate,
+        start_time: editStartTime,
+        end_time: editEndTime,
+        status: editStatus,
+      })
+      .eq('id', editingSchedule.id);
+
+    if (error) {
+      toast.error('Gagal memperbarui jadwal', { description: error.message });
+      setSavingEdit(false);
+      return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      try {
+        const userId = await ensureUserProfile(supabase, user);
+        if (userId) {
+          await supabase.from('activity_logs').insert({
+            user_id: userId,
+            action: 'update_schedule',
+            entity_type: 'schedule',
+            entity_id: editingSchedule.id,
+            details: `Edit jadwal: ${editName.trim()}`,
+          });
+        }
+      } catch {
+        // Ignore
+      }
+    }
+
+    toast.success('Jadwal berhasil diperbarui');
+    setEditingSchedule(null);
+    setSavingEdit(false);
+    loadData();
+  };
+
+  // ── DELETE: Delete Schedule ──
+  const handleDelete = async () => {
+    if (!deletingSchedule) return;
+    setDeleting(true);
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('schedules')
+      .delete()
+      .eq('id', deletingSchedule.id);
+
+    if (error) {
+      toast.error('Gagal menghapus jadwal', { description: error.message });
+      setDeleting(false);
+      return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      try {
+        const userId = await ensureUserProfile(supabase, user);
+        if (userId) {
+          await supabase.from('activity_logs').insert({
+            user_id: userId,
+            action: 'delete_schedule',
+            entity_type: 'schedule',
+            entity_id: deletingSchedule.id,
+            details: `Hapus jadwal: ${deletingSchedule.name}`,
+          });
+        }
+      } catch {
+        // Ignore
+      }
+    }
+
+    toast.success('Jadwal berhasil dihapus');
+    setDeletingSchedule(null);
+    setDeleting(false);
+    loadData();
   };
 
   const filtered = schedules.filter((s) => {
@@ -113,7 +273,7 @@ export default function SchedulePage() {
             </span>
           </div>
           <p className="text-xs text-slate-500 font-normal mt-1">
-            Atur tanggal mulai/selesai, jam tayang harian, serta penugasan layar TV secara otomatis.
+            Atur tanggal mulai/selesai, jam tayang harian, serta kelola CRUD penyiaran layar TV.
           </p>
         </div>
 
@@ -128,7 +288,7 @@ export default function SchedulePage() {
       {/* ── Asymmetric 2-Column Schedule Board (8 Cols + 4 Cols) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-        {/* ── LEFT COLUMN (8 Columns): Filters & Timeline Agenda Cards ── */}
+        {/* ── LEFT COLUMN (8 Columns): Filters & Agenda Feed List ── */}
         <div className="lg:col-span-8 space-y-4">
 
           {/* Search & Filter Pills Toolbar */}
@@ -144,7 +304,7 @@ export default function SchedulePage() {
             </div>
 
             <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto">
-              {(['all', 'active', 'draft', 'completed'] as const).map((f) => (
+              {(['all', 'active', 'draft', 'cancelled'] as const).map((f) => (
                 <button
                   key={f}
                   onClick={() => setFilter(f)}
@@ -180,7 +340,7 @@ export default function SchedulePage() {
                     key={schedule.id}
                     className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs hover:border-slate-300 transition-all duration-200 space-y-4"
                   >
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                       <div className="flex items-start gap-3.5 min-w-0">
                         <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 border ${
                           schedule.mode === 'promosi'
@@ -218,26 +378,61 @@ export default function SchedulePage() {
                         </div>
                       </div>
 
-                      {/* Action Button */}
-                      <div className="flex items-center gap-2 flex-shrink-0">
+                      {/* Complete CRUD Action Controls Bar */}
+                      <div className="flex items-center gap-1.5 flex-wrap flex-shrink-0">
+                        
+                        {/* Status Quick Toggles */}
                         {schedule.status === 'draft' && (
                           <button
                             onClick={() => handleStatusChange(schedule, 'active')}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-2xs transition-all"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-2xs transition-all"
+                            title="Aktifkan Penyiaran"
                           >
                             <Play className="w-3.5 h-3.5 fill-current" />
-                            Publish
+                            <span>Publish</span>
                           </button>
                         )}
+
                         {schedule.status === 'active' && (
                           <button
-                            onClick={() => handleStatusChange(schedule, 'cancelled')}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold transition-all"
+                            onClick={() => handleStatusChange(schedule, 'draft')}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold shadow-2xs transition-all"
+                            title="Jadikan Draft"
                           >
-                            <XCircle className="w-3.5 h-3.5" />
-                            Batalkan
+                            <Pause className="w-3.5 h-3.5" />
+                            <span>Pause</span>
                           </button>
                         )}
+
+                        {schedule.status !== 'cancelled' && (
+                          <button
+                            onClick={() => handleStatusChange(schedule, 'cancelled')}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 text-xs font-semibold transition-all"
+                            title="Batalkan Agenda"
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            <span>Batal</span>
+                          </button>
+                        )}
+
+                        {/* Edit Button */}
+                        <button
+                          onClick={() => openEditModal(schedule)}
+                          className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                          title="Edit Agenda"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+
+                        {/* Delete Button */}
+                        <button
+                          onClick={() => setDeletingSchedule(schedule)}
+                          className="p-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+                          title="Hapus Agenda"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+
                       </div>
                     </div>
 
@@ -326,6 +521,195 @@ export default function SchedulePage() {
         </div>
 
       </div>
+
+      {/* ── EDIT SCHEDULE MODAL DIALOG ── */}
+      <Dialog open={!!editingSchedule} onOpenChange={(open) => !open && setEditingSchedule(null)}>
+        <DialogContent className="sm:max-w-lg rounded-2xl p-6 bg-white border border-slate-200 shadow-xl space-y-4">
+          <div>
+            <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Edit3 className="w-4 h-4 text-blue-600" />
+              Edit Agenda Penyiaran
+            </DialogTitle>
+            <DialogDescription className="text-xs text-slate-500 mt-1">
+              Perbarui identitas agenda, playlist target, mode tayang, dan jadwal harian.
+            </DialogDescription>
+          </div>
+
+          <div className="space-y-4">
+            {/* Name */}
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-name" className="text-xs font-bold text-slate-800">
+                Nama Agenda Penyiaran
+              </Label>
+              <Input
+                id="edit-name"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="h-10 text-xs font-semibold rounded-xl bg-slate-50/60 border-slate-200/80 focus:bg-white"
+                required
+              />
+            </div>
+
+            {/* Target Playlist */}
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-playlist" className="text-xs font-bold text-slate-800">
+                Target Playlist
+              </Label>
+              <div className="relative">
+                <select
+                  id="edit-playlist"
+                  value={editPlaylistId}
+                  onChange={(e) => setEditPlaylistId(e.target.value)}
+                  className="w-full h-10 px-3.5 pr-8 text-xs font-bold text-slate-900 bg-slate-50/60 border border-slate-200/80 rounded-xl focus:bg-white focus:border-blue-500 focus:outline-none appearance-none transition-all cursor-pointer"
+                >
+                  {playlists.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.status})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Status & Mode */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-status" className="text-xs font-bold text-slate-800">Status Penyiaran</Label>
+                <div className="relative">
+                  <select
+                    id="edit-status"
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value as any)}
+                    className="w-full h-10 px-3.5 pr-8 text-xs font-bold text-slate-900 bg-slate-50/60 border border-slate-200/80 rounded-xl focus:bg-white focus:border-blue-500 focus:outline-none appearance-none transition-all cursor-pointer"
+                  >
+                    <option value="draft">Draft Agenda</option>
+                    <option value="active">Aktif Tayang</option>
+                    <option value="cancelled">Dibatalkan</option>
+                  </select>
+                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-mode" className="text-xs font-bold text-slate-800">Mode Tayang</Label>
+                <div className="relative">
+                  <select
+                    id="edit-mode"
+                    value={editMode}
+                    onChange={(e) => setEditMode(e.target.value as any)}
+                    className="w-full h-10 px-3.5 pr-8 text-xs font-bold text-slate-900 bg-slate-50/60 border border-slate-200/80 rounded-xl focus:bg-white focus:border-blue-500 focus:outline-none appearance-none transition-all cursor-pointer"
+                  >
+                    <option value="normal">Normal (Reguler)</option>
+                    <option value="promosi">Promosi Special</option>
+                  </select>
+                  <ChevronDown className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+            </div>
+
+            {/* Dates */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-start-date" className="text-xs font-bold text-slate-800">Tanggal Mulai</Label>
+                <Input
+                  id="edit-start-date"
+                  type="date"
+                  value={editStartDate}
+                  onChange={(e) => setEditStartDate(e.target.value)}
+                  className="h-10 text-xs rounded-xl bg-slate-50/60 border-slate-200/80 focus:bg-white"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-end-date" className="text-xs font-bold text-slate-800">Tanggal Selesai</Label>
+                <Input
+                  id="edit-end-date"
+                  type="date"
+                  value={editEndDate}
+                  onChange={(e) => setEditEndDate(e.target.value)}
+                  className="h-10 text-xs rounded-xl bg-slate-50/60 border-slate-200/80 focus:bg-white"
+                />
+              </div>
+            </div>
+
+            {/* Times */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-start-time" className="text-xs font-bold text-slate-800">Jam Mulai Harian</Label>
+                <Input
+                  id="edit-start-time"
+                  type="time"
+                  value={editStartTime}
+                  onChange={(e) => setEditStartTime(e.target.value)}
+                  className="h-10 text-xs rounded-xl bg-slate-50/60 border-slate-200/80 focus:bg-white"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-end-time" className="text-xs font-bold text-slate-800">Jam Selesai Harian</Label>
+                <Input
+                  id="edit-end-time"
+                  type="time"
+                  value={editEndTime}
+                  onChange={(e) => setEditEndTime(e.target.value)}
+                  className="h-10 text-xs rounded-xl bg-slate-50/60 border-slate-200/80 focus:bg-white"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setEditingSchedule(null)}
+              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50 transition-all"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveEdit}
+              disabled={savingEdit}
+              className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold shadow-2xs disabled:opacity-50 transition-all flex items-center gap-1.5"
+            >
+              {savingEdit && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              Simpan Perubahan
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── DELETE CONFIRMATION ALERT DIALOG ── */}
+      <AlertDialog open={!!deletingSchedule} onOpenChange={(open) => !open && setDeletingSchedule(null)}>
+        <AlertDialogContent className="sm:max-w-md rounded-2xl p-6 bg-white border border-slate-200 shadow-xl space-y-4">
+          <AlertDialogHeader className="space-y-1.5 text-left">
+            <AlertDialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Trash2 className="w-5 h-5 text-red-600" />
+              Hapus Agenda Penyiaran?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-slate-500 leading-relaxed">
+              Apakah Anda yakin ingin menghapus agenda <strong className="text-slate-900">{deletingSchedule?.name}</strong>? Tindakan ini tidak dapat dibatalkan.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+            <AlertDialogCancel
+              onClick={() => setDeletingSchedule(null)}
+              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50 transition-all"
+            >
+              Batal
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold shadow-2xs disabled:opacity-50 transition-all flex items-center gap-1.5"
+            >
+              {deleting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              Hapus Agenda
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );
