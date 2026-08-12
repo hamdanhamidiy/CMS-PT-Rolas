@@ -344,20 +344,29 @@ export default function PlaylistEditorPage() {
                   {/* Right: Duration & Play Limit Controls */}
                   <div className="flex items-center gap-3 flex-wrap md:flex-nowrap flex-shrink-0">
                     
-                    {/* Duration Input */}
-                    <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
-                      <Clock className="w-3.5 h-3.5 text-blue-600" />
-                      <span className="text-[11px] font-bold text-slate-600">Durasi:</span>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={3600}
-                        value={currentDur}
-                        onChange={(e) => updateMediaDuration(item.id, parseInt(e.target.value) || 10)}
-                        className="w-14 h-6 text-xs text-center border border-slate-200 font-bold text-slate-900 bg-white rounded-md p-0 focus-visible:ring-1 focus-visible:ring-blue-500"
-                      />
-                      <span className="text-[11px] font-semibold text-slate-500">Detik</span>
-                    </div>
+                    {/* Duration Input / Badge */}
+                    {item.media?.media_type === 'video' ? (
+                      <div className="flex items-center gap-1.5 bg-purple-50/80 px-3 py-1.5 rounded-lg border border-purple-100" title="Video diputar penuh 100% sampai selesai tanpa terpotong">
+                        <Clock className="w-3.5 h-3.5 text-purple-600" />
+                        <span className="text-[11px] font-bold text-purple-900">Durasi Video:</span>
+                        <span className="text-xs font-extrabold text-purple-700">{formatDuration(currentDur)}</span>
+                        <span className="text-[10px] font-semibold text-purple-600 bg-white px-1.5 py-0.5 rounded border border-purple-200">Otomatis Selesai</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
+                        <Clock className="w-3.5 h-3.5 text-blue-600" />
+                        <span className="text-[11px] font-bold text-slate-600">Durasi Foto:</span>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={3600}
+                          value={currentDur}
+                          onChange={(e) => updateMediaDuration(item.id, parseInt(e.target.value) || 10)}
+                          className="w-14 h-6 text-xs text-center border border-slate-200 font-bold text-slate-900 bg-white rounded-md p-0 focus-visible:ring-1 focus-visible:ring-blue-500"
+                        />
+                        <span className="text-[11px] font-semibold text-slate-500">Detik</span>
+                      </div>
+                    )}
 
                     {/* Play Limit Input */}
                     <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200">
