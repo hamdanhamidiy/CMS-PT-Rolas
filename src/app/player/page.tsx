@@ -225,7 +225,7 @@ export default function PlayerPage() {
   }, [screenId, phase]);
 
   // ============================================
-  // Playback
+  // Playback Navigation & Preloading
   // ============================================
   const playNext = useCallback(() => {
     if (playlist.length === 0) return;
@@ -234,12 +234,58 @@ export default function PlayerPage() {
     setCurrentMedia(playlist[nextIndex].media);
   }, [currentIndex, playlist]);
 
+  // Intelligent Background Preloading for Zero Delay
+  useEffect(() => {
+    if (playlist.length <= 1) return;
+    const nextIndex = (currentIndex + 1) % playlist.length;
+    const nextMedia = playlist[nextIndex]?.media;
+
+    if (nextMedia) {
+      if (nextMedia.media_type === 'image') {
+        const img = new Image();
+        img.src = nextMedia.file_url;
+      } else if (nextMedia.media_type === 'video') {
+        const vid = document.createElement('video');
+        vid.preload = 'auto';
+        vid.src = nextMedia.file_url;
+      }
+    }
+  }, [currentIndex, playlist]);
+
+  // Robust Autoplay Handler for Images & Videos with Safety Timeout
   useEffect(() => {
     if (!currentMedia || phase !== 'playing') return;
 
     if (currentMedia.media_type === 'image') {
       const timeout = setTimeout(playNext, (currentMedia.duration || 10) * 1000);
       return () => clearTimeout(timeout);
+    }
+
+    if (currentMedia.media_type === 'video' && videoRef.current) {
+      const vid = videoRef.current;
+      vid.currentTime = 0;
+
+      const attemptPlay = async () => {
+        try {
+          vid.muted = false;
+          await vid.play();
+        } catch {
+          try {
+            vid.muted = true;
+            await vid.play();
+          } catch {
+            // Autoplay blocked completely, skip after short delay
+          }
+        }
+      };
+
+      attemptPlay();
+
+      // Safety fallback timer: skip to next item if video hangs or network stalls
+      const safetyTime = ((currentMedia.duration || 30) + 5) * 1000;
+      const safetyTimeout = setTimeout(playNext, safetyTime);
+
+      return () => clearTimeout(safetyTimeout);
     }
   }, [currentMedia, phase, playNext]);
 
@@ -423,7 +469,9 @@ export default function PlayerPage() {
           ref={videoRef}
           src={currentMedia.file_url}
           autoPlay
-          muted={false}
+          playsInline
+          controls={false}
+          preload="auto"
           onEnded={playNext}
           onError={playNext}
           className="w-full h-full object-contain"
