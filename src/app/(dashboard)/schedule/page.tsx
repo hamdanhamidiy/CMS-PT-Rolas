@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -41,7 +42,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import Link from 'next/link';
-import type { Schedule, Playlist } from '@/lib/types';
+import type { Schedule, Playlist, Screen } from '@/lib/types';
 import { formatDate, formatTime, ensureUserProfile } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -49,6 +50,7 @@ export default function SchedulePage() {
   const [loading, setLoading] = useState(true);
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
+  const [screens, setScreens] = useState<Screen[]>([]);
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'active' | 'draft' | 'cancelled'>('all');
 
@@ -63,6 +65,7 @@ export default function SchedulePage() {
   const [editStartTime, setEditStartTime] = useState('08:00');
   const [editEndTime, setEditEndTime] = useState('17:00');
   const [editStatus, setEditStatus] = useState<'draft' | 'active' | 'cancelled'>('draft');
+  const [editSelectedScreens, setEditSelectedScreens] = useState<string[]>([]);
   const [savingEdit, setSavingEdit] = useState(false);
 
   // Delete Dialog State
@@ -75,16 +78,18 @@ export default function SchedulePage() {
 
   const loadData = async () => {
     const supabase = createClient();
-    const [schedRes, playRes] = await Promise.all([
+    const [schedRes, playRes, screenRes] = await Promise.all([
       supabase
         .from('schedules')
         .select('*, playlist:playlists(name), schedule_screens(screen_id)')
         .order('created_at', { ascending: false }),
       supabase.from('playlists').select('*').order('name'),
+      supabase.from('screens').select('*').order('name'),
     ]);
 
     setSchedules(schedRes.data || []);
     setPlaylists(playRes.data || []);
+    setScreens(screenRes.data || []);
     setLoading(false);
   };
 
@@ -135,6 +140,10 @@ export default function SchedulePage() {
     setEditStartTime(schedule.start_time);
     setEditEndTime(schedule.end_time);
     setEditStatus(schedule.status as any);
+
+    // Initialize selected screens
+    const assignedScreenIds = (schedule as any).schedule_screens?.map((ss: any) => ss.screen_id) || [];
+    setEditSelectedScreens(assignedScreenIds);
   };
 
   // ── UPDATE: Save Edit ──
@@ -144,9 +153,15 @@ export default function SchedulePage() {
       return;
     }
 
+    if (editSelectedScreens.length === 0) {
+      toast.error('Pilih minimal 1 layar TV penyiaran');
+      return;
+    }
+
     setSavingEdit(true);
     const supabase = createClient();
 
+    // 1. Update Schedule Row
     const { error } = await supabase
       .from('schedules')
       .update({
@@ -168,6 +183,21 @@ export default function SchedulePage() {
       return;
     }
 
+    // 2. Update Target Screens (Junction Table)
+    await supabase
+      .from('schedule_screens')
+      .delete()
+      .eq('schedule_id', editingSchedule.id);
+
+    if (editSelectedScreens.length > 0) {
+      const newAssignments = editSelectedScreens.map((screenId) => ({
+        schedule_id: editingSchedule.id,
+        screen_id: screenId,
+      }));
+      await supabase.from('schedule_screens').insert(newAssignments);
+    }
+
+    // 3. Activity Log
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       try {
@@ -178,7 +208,7 @@ export default function SchedulePage() {
             action: 'update_schedule',
             entity_type: 'schedule',
             entity_id: editingSchedule.id,
-            details: `Edit jadwal: ${editName.trim()}`,
+            details: `Edit jadwal & penugasan layar: ${editName.trim()} (${editSelectedScreens.length} Layar)`,
           });
         }
       } catch {
@@ -186,7 +216,7 @@ export default function SchedulePage() {
       }
     }
 
-    toast.success('Jadwal berhasil diperbarui');
+    toast.success('Jadwal & Penugasan Layar Berhasil Diperbarui');
     setEditingSchedule(null);
     setSavingEdit(false);
     loadData();
@@ -273,7 +303,7 @@ export default function SchedulePage() {
             </span>
           </div>
           <p className="text-xs text-slate-500 font-normal mt-1">
-            Atur tanggal mulai/selesai, jam tayang harian, serta kelola CRUD penyiaran layar TV.
+            Atur tanggal mulai/selesai, jam tayang harian, serta kelola penugasan layar TV penyiaran.
           </p>
         </div>
 
@@ -419,7 +449,7 @@ export default function SchedulePage() {
                         <button
                           onClick={() => openEditModal(schedule)}
                           className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
-                          title="Edit Agenda"
+                          title="Edit Agenda & Perangkat Layar"
                         >
                           <Edit3 className="w-4 h-4" />
                         </button>
@@ -524,14 +554,14 @@ export default function SchedulePage() {
 
       {/* ── EDIT SCHEDULE MODAL DIALOG ── */}
       <Dialog open={!!editingSchedule} onOpenChange={(open) => !open && setEditingSchedule(null)}>
-        <DialogContent className="sm:max-w-lg rounded-2xl p-6 bg-white border border-slate-200 shadow-xl space-y-4">
+        <DialogContent className="sm:max-w-lg rounded-2xl p-6 bg-white border border-slate-200 shadow-xl space-y-4 max-h-[90vh] overflow-y-auto">
           <div>
             <DialogTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
               <Edit3 className="w-4 h-4 text-blue-600" />
-              Edit Agenda Penyiaran
+              Edit Agenda & Penugasan Layar
             </DialogTitle>
             <DialogDescription className="text-xs text-slate-500 mt-1">
-              Perbarui identitas agenda, playlist target, mode tayang, dan jadwal harian.
+              Perbarui identitas agenda, playlist target, jam tayang harian, dan layar TV penyiaran.
             </DialogDescription>
           </div>
 
@@ -572,8 +602,63 @@ export default function SchedulePage() {
               </div>
             </div>
 
+            {/* Target Screens Selection */}
+            <div className="space-y-2 pt-1 border-t border-slate-100">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <MonitorPlay className="w-3.5 h-3.5 text-indigo-600" />
+                  Target Layar TV Penyiaran ({editSelectedScreens.length} Terpilih)
+                </Label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (editSelectedScreens.length === screens.length) {
+                      setEditSelectedScreens([]);
+                    } else {
+                      setEditSelectedScreens(screens.map((s) => s.id));
+                    }
+                  }}
+                  className="text-[11px] font-bold text-blue-600 hover:underline"
+                >
+                  {editSelectedScreens.length === screens.length ? 'Batalkan Semua' : 'Pilih Semua'}
+                </button>
+              </div>
+
+              <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 max-h-[160px] overflow-y-auto bg-slate-50/40">
+                {screens.map((screen) => (
+                  <label
+                    key={screen.id}
+                    className={`flex items-center gap-2.5 px-3.5 py-2.5 cursor-pointer transition-colors ${
+                      editSelectedScreens.includes(screen.id)
+                        ? 'bg-blue-50/60'
+                        : 'hover:bg-slate-100/60'
+                    }`}
+                  >
+                    <Checkbox
+                      checked={editSelectedScreens.includes(screen.id)}
+                      onCheckedChange={() => {
+                        setEditSelectedScreens((prev) =>
+                          prev.includes(screen.id)
+                            ? prev.filter((id) => id !== screen.id)
+                            : [...prev, screen.id]
+                        );
+                      }}
+                    />
+                    <MonitorPlay className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-slate-900 truncate">{screen.name}</p>
+                      <p className="text-[10px] text-slate-400 font-normal truncate">
+                        {screen.site}{screen.area ? ` — ${screen.area}` : ''} ({screen.screen_code})
+                      </p>
+                    </div>
+                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${screen.status === 'online' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+                  </label>
+                ))}
+              </div>
+            </div>
+
             {/* Status & Mode */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-slate-100">
               <div className="space-y-1.5">
                 <Label htmlFor="edit-status" className="text-xs font-bold text-slate-800">Status Penyiaran</Label>
                 <div className="relative">
