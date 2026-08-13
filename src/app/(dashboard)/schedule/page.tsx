@@ -43,7 +43,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Schedule, Playlist, Screen } from '@/lib/types';
-import { formatDate, formatTime, ensureUserProfile } from '@/lib/utils';
+import { formatDate, formatTime, ensureUserProfile, logActivity } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function SchedulePage() {
@@ -106,23 +106,13 @@ export default function SchedulePage() {
       return;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      try {
-        const userId = await ensureUserProfile(supabase, user);
-        if (userId) {
-          await supabase.from('activity_logs').insert({
-            user_id: userId,
-            action: `${newStatus}_schedule`,
-            entity_type: 'schedule',
-            entity_id: schedule.id,
-            details: `Ubah status jadwal '${schedule.name}' menjadi ${newStatus}`,
-          });
-        }
-      } catch {
-        // Ignore
-      }
-    }
+    await logActivity(
+      supabase,
+      `${newStatus}_schedule`,
+      'schedule',
+      schedule.id,
+      `Ubah status jadwal '${schedule.name}' menjadi ${newStatus}`
+    );
 
     toast.success(`Jadwal diubah menjadi ${newStatus.toUpperCase()}`);
     loadData();
@@ -198,23 +188,13 @@ export default function SchedulePage() {
     }
 
     // 3. Activity Log
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      try {
-        const userId = await ensureUserProfile(supabase, user);
-        if (userId) {
-          await supabase.from('activity_logs').insert({
-            user_id: userId,
-            action: 'update_schedule',
-            entity_type: 'schedule',
-            entity_id: editingSchedule.id,
-            details: `Edit jadwal & penugasan layar: ${editName.trim()} (${editSelectedScreens.length} Layar)`,
-          });
-        }
-      } catch {
-        // Ignore
-      }
-    }
+    await logActivity(
+      supabase,
+      'update_schedule',
+      'schedule',
+      editingSchedule.id,
+      `Edit jadwal & penugasan layar: ${editName.trim()} (${editSelectedScreens.length} Layar)`
+    );
 
     toast.success('Jadwal & Penugasan Layar Berhasil Diperbarui');
     setEditingSchedule(null);
@@ -239,23 +219,13 @@ export default function SchedulePage() {
       return;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      try {
-        const userId = await ensureUserProfile(supabase, user);
-        if (userId) {
-          await supabase.from('activity_logs').insert({
-            user_id: userId,
-            action: 'delete_schedule',
-            entity_type: 'schedule',
-            entity_id: deletingSchedule.id,
-            details: `Hapus jadwal: ${deletingSchedule.name}`,
-          });
-        }
-      } catch {
-        // Ignore
-      }
-    }
+    await logActivity(
+      supabase,
+      'delete_schedule',
+      'schedule',
+      deletingSchedule.id,
+      `Hapus jadwal: ${deletingSchedule.name}`
+    );
 
     toast.success('Jadwal berhasil dihapus');
     setDeletingSchedule(null);

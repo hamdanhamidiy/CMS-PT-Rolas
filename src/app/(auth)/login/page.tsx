@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import Logo from '@/components/shared/Logo';
 import { Loader2, Eye, EyeOff, UserPlus, LogIn } from 'lucide-react';
 import { toast } from 'sonner';
+import { logActivity } from '@/lib/utils';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -42,6 +43,8 @@ export default function LoginPage() {
           setLoading(false);
           return;
         }
+
+        await logActivity(supabase, 'login', 'auth', null, `Login admin: ${email}`);
 
         toast.success('Login berhasil', {
           description: 'Mengalihkan ke dashboard...',

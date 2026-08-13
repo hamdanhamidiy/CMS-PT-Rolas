@@ -19,7 +19,7 @@ import {
   CheckCircle,
 } from 'lucide-react';
 import Link from 'next/link';
-import { formatFileSize } from '@/lib/utils';
+import { formatFileSize, logActivity } from '@/lib/utils';
 import { toast } from 'sonner';
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB (Supabase Free Plan limit)
@@ -237,18 +237,13 @@ export default function UploadMediaPage() {
       }
 
       // 5. Log activity
-      if (createdBy) {
-        try {
-          await supabase.from('activity_logs').insert({
-            user_id: createdBy,
-            action: 'upload_media',
-            entity_type: 'media',
-            details: `Upload media: ${title.trim()}`,
-          });
-        } catch {
-          // Ignore activity log failure
-        }
-      }
+      await logActivity(
+        supabase,
+        'upload_media',
+        'media',
+        null,
+        `Upload media: ${title.trim()}`
+      );
 
       setProgress(100);
       toast.success('Media berhasil diunggah');

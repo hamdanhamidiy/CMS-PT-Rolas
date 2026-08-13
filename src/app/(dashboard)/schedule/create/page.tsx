@@ -18,7 +18,7 @@ import {
 import Link from 'next/link';
 import type { Playlist, Screen } from '@/lib/types';
 import { toast } from 'sonner';
-import { ensureUserProfile } from '@/lib/utils';
+import { ensureUserProfile, logActivity } from '@/lib/utils';
 
 export default function CreateSchedulePage() {
   const router = useRouter();
@@ -147,19 +147,13 @@ export default function CreateSchedulePage() {
     await supabase.from('schedule_screens').insert(screenAssignments);
 
     // 3. Log activity
-    if (user && createdBy) {
-      try {
-        await supabase.from('activity_logs').insert({
-          user_id: createdBy,
-          action: 'create_schedule',
-          entity_type: 'schedule',
-          entity_id: schedule.id,
-          details: `Membuat jadwal: ${name.trim()} (${mode}, ${selectedScreens.length} layar)`,
-        });
-      } catch {
-        // Ignore activity log error
-      }
-    }
+    await logActivity(
+      supabase,
+      'create_schedule',
+      'schedule',
+      schedule.id,
+      `Membuat jadwal: ${name.trim()} (${mode}, ${selectedScreens.length} layar)`
+    );
 
     toast.success('Jadwal berhasil dibuat');
     router.push('/schedule');

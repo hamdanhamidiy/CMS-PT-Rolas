@@ -47,7 +47,7 @@ import {
   Radio,
 } from 'lucide-react';
 import type { Screen } from '@/lib/types';
-import { generateActivationCode, generateScreenCode, getRelativeTime } from '@/lib/utils';
+import { generateActivationCode, generateScreenCode, getRelativeTime, logActivity } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function ScreensPage() {
@@ -106,16 +106,13 @@ export default function ScreensPage() {
       return;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from('activity_logs').insert({
-        user_id: user.id,
-        action: 'create_screen',
-        entity_type: 'screen',
-        entity_id: data.id,
-        details: `Menambah layar: ${newName.trim()} (${screenCode})`,
-      });
-    }
+    await logActivity(
+      supabase,
+      'create_screen',
+      'screen',
+      data.id,
+      `Menambah layar: ${newName.trim()} (${screenCode})`
+    );
 
     toast.success('Layar berhasil ditambahkan');
     setShowCreate(false);
@@ -143,16 +140,13 @@ export default function ScreensPage() {
       return;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from('activity_logs').insert({
-        user_id: user.id,
-        action: 'generate_activation_code',
-        entity_type: 'screen',
-        entity_id: screen.id,
-        details: `Kode aktivasi untuk ${screen.name}: ${code}`,
-      });
-    }
+    await logActivity(
+      supabase,
+      'generate_activation_code',
+      'screen',
+      screen.id,
+      `Kode aktivasi untuk ${screen.name}: ${code}`
+    );
 
     setShowActivation({ screenId: screen.id, code });
   };
@@ -192,6 +186,14 @@ export default function ScreensPage() {
       return;
     }
 
+    await logActivity(
+      supabase,
+      'delete_screen',
+      'screen',
+      selectedScreen.id,
+      `Hapus layar: ${selectedScreen.name} (${selectedScreen.screen_code})`
+    );
+
     toast.success('Layar berhasil dihapus');
     setShowDelete(false);
     setSelectedScreen(null);
@@ -214,6 +216,14 @@ export default function ScreensPage() {
       toast.error('Gagal mereset koneksi layar');
       return;
     }
+
+    await logActivity(
+      supabase,
+      'update_screen',
+      'screen',
+      selectedScreen.id,
+      `Reset koneksi layar: ${selectedScreen.name}`
+    );
 
     toast.success('Koneksi layar berhasil direset');
     setShowReset(false);

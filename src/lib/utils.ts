@@ -98,18 +98,52 @@ export async function ensureUserProfile(supabase: any, user: any): Promise<strin
       .from('profiles')
       .select('id')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
     if (!existing) {
-      await supabase.from('profiles').upsert({
-        id: user.id,
-        email: user.email || 'admin@rolasmedika.co.id',
-        full_name: user.user_metadata?.full_name || 'Admin User',
-        role: 'admin',
-      });
+      await supabase.from('profiles').upsert(
+        {
+          id: user.id,
+          email: user.email || 'admin@rolasmedika.co.id',
+          full_name: user.user_metadata?.full_name || 'Admin User',
+          role: 'admin',
+        },
+        { onConflict: 'id' }
+      );
     }
     return user.id;
   } catch {
-    return null;
+    return user.id || null;
   }
 }
+
+export async function logActivity(
+  supabase: any,
+  action: string,
+  entityType: string,
+  entityId: string | null = null,
+  details: string | null = null
+): Promise<void> {
+  try {
+    let userId: string | null = null;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        userId = await ensureUserProfile(supabase, user);
+      }
+    } catch {
+      userId = null;
+    }
+
+    await supabase.from('activity_logs').insert({
+      user_id: userId,
+      action,
+      entity_type: entityType,
+      entity_id: entityId,
+      details,
+    });
+  } catch (err) {
+    console.error('Failed to log activity:', err);
+  }
+}
+

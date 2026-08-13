@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Playlist, PlaylistItem, Media } from '@/lib/types';
-import { formatDuration, formatFileSize, getMediaTypeLabel } from '@/lib/utils';
+import { formatDuration, formatFileSize, getMediaTypeLabel, logActivity } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function PlaylistEditorPage() {
@@ -168,6 +168,14 @@ export default function PlaylistEditorPage() {
 
     await Promise.all([...itemUpdates, ...mediaUpdates]);
 
+    await logActivity(
+      supabase,
+      'update_playlist',
+      'playlist',
+      playlistId,
+      `Update urutan & durasi item playlist: ${playlist?.name || playlistId}`
+    );
+
     toast.success('Urutan & Durasi Playlist Berhasil Disimpan');
     setSaving(false);
   };
@@ -176,6 +184,15 @@ export default function PlaylistEditorPage() {
     const supabase = createClient();
     await supabase.from('playlists').update({ status }).eq('id', playlistId);
     setPlaylist((prev) => (prev ? { ...prev, status: status as any } : null));
+
+    await logActivity(
+      supabase,
+      'update_playlist',
+      'playlist',
+      playlistId,
+      `Ubah status playlist '${playlist?.name || playlistId}' menjadi ${status}`
+    );
+
     toast.success(`Status diubah ke ${status.toUpperCase()}`);
   };
 

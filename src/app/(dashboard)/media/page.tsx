@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Media } from '@/lib/types';
-import { formatFileSize, formatDuration, formatDateTime, getMediaTypeLabel } from '@/lib/utils';
+import { formatFileSize, formatDuration, formatDateTime, getMediaTypeLabel, logActivity } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function MediaPage() {
@@ -76,16 +76,13 @@ export default function MediaPage() {
       return;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from('activity_logs').insert({
-        user_id: user.id,
-        action: 'delete_media',
-        entity_type: 'media',
-        entity_id: item.id,
-        details: `Menghapus media: ${item.title}`,
-      });
-    }
+    await logActivity(
+      supabase,
+      'delete_media',
+      'media',
+      item.id,
+      `Menghapus media: ${item.title}`
+    );
 
     toast.success('Media berhasil dihapus');
     setMedia((prev) => prev.filter((m) => m.id !== item.id));

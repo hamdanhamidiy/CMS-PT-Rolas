@@ -39,7 +39,7 @@ import Link from 'next/link';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { Playlist } from '@/lib/types';
-import { formatDateTime, ensureUserProfile } from '@/lib/utils';
+import { formatDateTime, ensureUserProfile, logActivity } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function PlaylistPage() {
@@ -114,19 +114,13 @@ export default function PlaylistPage() {
       return;
     }
 
-    if (user && createdBy) {
-      try {
-        await supabase.from('activity_logs').insert({
-          user_id: createdBy,
-          action: 'create_playlist',
-          entity_type: 'playlist',
-          entity_id: data.id,
-          details: `Membuat playlist: ${newName.trim()}`,
-        });
-      } catch {
-        // Ignore activity log error
-      }
-    }
+    await logActivity(
+      supabase,
+      'create_playlist',
+      'playlist',
+      data.id,
+      `Membuat playlist: ${newName.trim()}`
+    );
 
     toast.success('Playlist berhasil dibuat');
     setShowCreate(false);
@@ -143,6 +137,13 @@ export default function PlaylistPage() {
       toast.error('Gagal menghapus playlist');
       return;
     }
+    await logActivity(
+      supabase,
+      'delete_playlist',
+      'playlist',
+      playlist.id,
+      `Menghapus playlist: ${playlist.name}`
+    );
     toast.success('Playlist berhasil dihapus');
     setPlaylists((prev) => prev.filter((p) => p.id !== playlist.id));
   };
