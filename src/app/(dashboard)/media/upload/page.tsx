@@ -84,6 +84,59 @@ export default function UploadMediaPage() {
     [handleFile]
   );
 
+  const uploadWithRealProgress = (
+    supabase: ReturnType<typeof createClient>,
+    fileName: string,
+    fileToUpload: File,
+    onProgress: (pct: number) => void
+  ) => {
+    return new Promise<{ path: string }>((resolve, reject) => {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+      supabase.auth.getSession().then(({ data: sessionData }) => {
+        const token = sessionData.session?.access_token || anonKey;
+        const xhr = new XMLHttpRequest();
+        const url = `${supabaseUrl}/storage/v1/object/media/${fileName}`;
+
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable && e.total > 0) {
+            const percent = Math.round((e.loaded / e.total) * 90);
+            onProgress(percent);
+          }
+        });
+
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve({ path: fileName });
+          } else {
+            try {
+              const err = JSON.parse(xhr.responseText);
+              reject(new Error(err.message || err.error || `Upload gagal (HTTP ${xhr.status})`));
+            } catch {
+              reject(new Error(`Upload gagal dengan status HTTP ${xhr.status}`));
+            }
+          }
+        });
+
+        xhr.addEventListener('error', () => {
+          reject(new Error('Koneksi terputus saat mengunggah (ERR_CONNECTION_RESET). Periksa jaringan internet Anda atau kompres file.'));
+        });
+
+        xhr.addEventListener('timeout', () => {
+          reject(new Error('Waktu pengunggahan habis (Timeout). Koneksi jaringan lambat.'));
+        });
+
+        xhr.open('POST', url);
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.setRequestHeader('apikey', anonKey || '');
+        xhr.setRequestHeader('cache-control', '3600');
+        xhr.setRequestHeader('x-upsert', 'false');
+        xhr.send(fileToUpload);
+      }).catch(reject);
+    });
+  };
+
   const handleUpload = async () => {
     if (!file || !title.trim()) {
       toast.error('Lengkapi form', { description: 'Judul dan file wajib diisi.' });
@@ -96,28 +149,23 @@ export default function UploadMediaPage() {
     try {
       const supabase = createClient();
 
-      // 1. Upload file to Supabase Storage
+      // 1. Upload file to Supabase Storage with REAL progress tracking
       const ext = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
 
-      // Simulate progress
-      const progressInterval = setInterval(() => {
-        setProgress((prev) => Math.min(prev + 10, 90));
-      }, 200);
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('media')
-        .upload(fileName, file, {
-          cacheControl: '3600',
-          upsert: false,
+      try {
+        await uploadWithRealProgress(supabase, fileName, file, (pct) => {
+          setProgress(pct);
         });
+      } catch (uploadErr: any) {
+        // Fallback to standard Supabase upload if XHR fails
+        const { error: fallbackErr } = await supabase.storage
+          .from('media')
+          .upload(fileName, file, { cacheControl: '3600', upsert: false });
 
-      clearInterval(progressInterval);
-
-      if (uploadError) {
-        toast.error('Gagal mengunggah file', { description: uploadError.message });
-        setUploading(false);
-        return;
+        if (fallbackErr) {
+          throw new Error(uploadErr?.message || fallbackErr.message);
+        }
       }
 
       setProgress(95);
@@ -132,26 +180,28 @@ export default function UploadMediaPage() {
       }
 
       // 4. Insert into database with profile safety fallback
-      const { data: { user } } = await supabase.auth.getUser();
-
       let createdBy: string | null = null;
-      if (user) {
-        // Ensure profile exists in profiles table
-        const { data: existingProfile } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('id', user.id)
-          .single();
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: existingProfile } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('id', user.id)
+            .maybeSingle();
 
-        if (!existingProfile) {
-          await supabase.from('profiles').upsert({
-            id: user.id,
-            email: user.email || 'admin@rolasmedika.co.id',
-            full_name: user.user_metadata?.full_name || 'Admin User',
-            role: 'admin',
-          });
+          if (!existingProfile) {
+            await supabase.from('profiles').upsert({
+              id: user.id,
+              email: user.email || 'admin@rolasmedika.co.id',
+              full_name: user.user_metadata?.full_name || 'Admin User',
+              role: 'admin',
+            });
+          }
+          createdBy = user.id;
         }
-        createdBy = user.id;
+      } catch {
+        createdBy = null;
       }
 
       let { error: dbError } = await supabase.from('media').insert({
@@ -166,7 +216,7 @@ export default function UploadMediaPage() {
       });
 
       // Retry with created_by = null if foreign key constraint failed
-      if (dbError && dbError.message.includes('foreign key constraint')) {
+      if (dbError) {
         const { error: retryError } = await supabase.from('media').insert({
           title: title.trim(),
           description: description.trim() || null,
@@ -187,7 +237,7 @@ export default function UploadMediaPage() {
       }
 
       // 5. Log activity
-      if (user && createdBy) {
+      if (createdBy) {
         try {
           await supabase.from('activity_logs').insert({
             user_id: createdBy,
@@ -206,8 +256,10 @@ export default function UploadMediaPage() {
       setTimeout(() => {
         router.push('/media');
       }, 500);
-    } catch (err) {
-      toast.error('Terjadi kesalahan saat mengunggah');
+    } catch (err: any) {
+      toast.error('Gagal mengunggah file', {
+        description: err.message || 'Terjadi kesalahan saat mengunggah.',
+      });
     } finally {
       setUploading(false);
     }
