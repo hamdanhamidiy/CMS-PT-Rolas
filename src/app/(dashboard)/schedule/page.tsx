@@ -261,256 +261,268 @@ export default function SchedulePage() {
   return (
     <div className="pb-16 space-y-6 max-w-7xl mx-auto">
       
-      {/* ── Top Header Section ── */}
-      <div className="space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-              </span>
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Manajemen Penyiaran TV</span>
-            </div>
+      {/* ── Corporate Clean Top Header Bar ── */}
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
+        <div>
+          <div className="flex items-center gap-2.5">
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
               Jadwal & Agenda Penyiaran
             </h1>
-            <p className="text-xs text-slate-500 font-normal mt-0.5">
-              Atur tanggal mulai/selesai, jam tayang harian, serta kelola alokasi penayangan TV penyiaran.
-            </p>
-          </div>
-
-          <Link href="/schedule/create">
-            <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-2xs transition-all active:scale-[0.98]">
-              <Plus className="w-4 h-4" />
-              Buat Jadwal Baru
-            </button>
-          </Link>
-        </div>
-
-        {/* Floating Metric Capsules (Dribbble Signature Bar) */}
-        <div className="flex flex-wrap items-center gap-2.5 p-1.5 rounded-2xl bg-slate-100/70 border border-slate-200/60">
-          <div className="inline-flex items-center gap-2 bg-white px-3.5 py-1.5 rounded-xl border border-slate-200/80 text-xs font-semibold text-slate-700 shadow-2xs">
-            <CalendarClock className="w-3.5 h-3.5 text-slate-500" />
-            <span>Total Agenda: {schedules.length}</span>
-          </div>
-
-          <div className="inline-flex items-center gap-2 bg-white px-3.5 py-1.5 rounded-xl border border-slate-200/80 text-xs font-semibold text-slate-700 shadow-2xs">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Aktif Tayang: {activeSchedules}</span>
-            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] px-2 py-0.5 rounded-full font-bold">
-              Berjalan
+            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+              {schedules.length} Agenda
             </span>
           </div>
-
-          <div className="inline-flex items-center gap-2 bg-white px-3.5 py-1.5 rounded-xl border border-slate-200/80 text-xs font-semibold text-slate-700 shadow-2xs">
-            <Megaphone className="w-3.5 h-3.5 text-purple-600" />
-            <span>Mode Promosi: {promoSchedules}</span>
-          </div>
-
-          <div className="inline-flex items-center gap-2 bg-white px-3.5 py-1.5 rounded-xl border border-slate-200/80 text-xs font-semibold text-slate-700 shadow-2xs">
-            <Pause className="w-3.5 h-3.5 text-slate-400" />
-            <span>Draft Simpanan: {draftSchedules}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Search & Filter Controls Toolbar ── */}
-      <div className="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="relative flex-1 w-full">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <Input
-            placeholder="Cari nama agenda penyiaran..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-10 h-9.5 text-xs bg-slate-50/60 border-slate-200/60 rounded-xl focus:bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 transition-all"
-          />
-        </div>
-
-        <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto bg-slate-100/70 p-1 rounded-xl border border-slate-200/60">
-          {(['all', 'active', 'draft', 'cancelled'] as const).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
-                filter === f
-                  ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                  : 'text-slate-500 hover:text-slate-800'
-              }`}
-            >
-              {f === 'all' ? 'Semua Agenda' : statusConfig[f]?.label || f}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── Main Agenda Cards Grid ── */}
-      {filtered.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-12 text-center space-y-2">
-          <CalendarClock className="w-10 h-10 mx-auto text-slate-300" />
-          <p className="text-sm font-semibold text-slate-900">
-            {search ? 'Tidak ada agenda yang sesuai' : 'Belum Ada Agenda Penyiaran'}
-          </p>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            {search ? 'Gunakan kata kunci pencarian lain atau ubah filter status.' : 'Buat jadwal baru untuk mulai menayangkan konten playlist pada TV penyiaran.'}
+          <p className="text-xs text-slate-500 font-normal mt-1">
+            Atur tanggal mulai/selesai, jam tayang harian, serta kelola penugasan layar TV penyiaran.
           </p>
         </div>
-      ) : (
-        <div className="space-y-3.5">
-          {filtered.map((schedule: any) => {
-            const cfg = statusConfig[schedule.status] || statusConfig.draft;
-            return (
-              <div
-                key={schedule.id}
-                className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs hover:shadow-xs hover:border-slate-300 transition-all duration-200 space-y-4"
-              >
-                {/* Header Row of Agenda Item */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-slate-100">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200/80 text-slate-700 flex items-center justify-center flex-shrink-0">
-                      {schedule.mode === 'promosi' ? (
-                        <Megaphone className="w-4 h-4 text-purple-600" />
-                      ) : (
-                        <Tv className="w-4 h-4 text-blue-600" />
-                      )}
-                    </div>
 
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2.5 flex-wrap">
-                        <h3 className="text-sm font-bold text-slate-900">
-                          {schedule.name}
-                        </h3>
-                        <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${
-                          schedule.status === 'active'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
-                            : schedule.status === 'cancelled'
-                              ? 'bg-red-50 text-red-600 border-red-200/80'
-                              : 'bg-slate-100 text-slate-600 border-slate-200/80'
-                        }`}>
-                          {cfg.label}
-                        </span>
-                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${
-                          schedule.mode === 'promosi'
-                            ? 'bg-purple-50 text-purple-700 border-purple-200/80'
-                            : 'bg-blue-50 text-blue-700 border-blue-200/80'
-                        }`}>
-                          {schedule.mode === 'promosi' ? 'Mode Promosi Special' : 'Normal'}
-                        </span>
+        <Link href="/schedule/create">
+          <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-2xs transition-all active:scale-[0.98]">
+            <Plus className="w-4 h-4" />
+            Buat Jadwal Baru
+          </button>
+        </Link>
+      </header>
+
+      {/* ── Asymmetric 2-Column Schedule Board (8 Cols + 4 Cols) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        {/* ── LEFT COLUMN (8 Columns): Filters & Agenda Feed List ── */}
+        <div className="lg:col-span-8 space-y-4">
+
+          {/* Search & Filter Pills Toolbar */}
+          <div className="bg-white p-2.5 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="relative flex-1 w-full">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                placeholder="Cari nama agenda penyiaran..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10 h-9 text-xs bg-slate-50/60 border-slate-200/60 rounded-xl focus:bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-500/10 transition-all"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto bg-slate-100/70 p-1 rounded-xl border border-slate-200/60">
+              {(['all', 'active', 'draft', 'cancelled'] as const).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                    filter === f
+                      ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  {f === 'all' ? 'Semua' : statusConfig[f]?.label || f}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Agenda Feed List */}
+          {filtered.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs p-12 text-center">
+              <CalendarClock className="w-10 h-10 mx-auto text-slate-300 mb-3" />
+              <p className="text-sm font-semibold text-slate-900">
+                {search ? 'Tidak ada jadwal yang cocok' : 'Belum Ada Agenda Penyiaran'}
+              </p>
+              <p className="text-xs text-slate-500 mt-1 font-normal">
+                {search ? 'Coba gunakan kata kunci lain.' : 'Buat jadwal baru untuk menjadwalkan penayangan playlist otomatis.'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3.5">
+              {filtered.map((schedule: any) => {
+                const cfg = statusConfig[schedule.status] || statusConfig.draft;
+                return (
+                  <div
+                    key={schedule.id}
+                    className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs hover:shadow-xs hover:border-slate-300 transition-all duration-200 space-y-4"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                      <div className="flex items-start gap-3.5 min-w-0">
+                        {/* Clean Monochromatic Icon Box */}
+                        <div className="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200/80 text-slate-700 flex items-center justify-center flex-shrink-0">
+                          {schedule.mode === 'promosi' ? (
+                            <Megaphone className="w-4 h-4 text-purple-600" />
+                          ) : (
+                            <Tv className="w-4 h-4 text-blue-600" />
+                          )}
+                        </div>
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h3 className="text-sm font-bold text-slate-900">
+                              {schedule.name}
+                            </h3>
+                            <span className={`text-[11px] font-semibold px-2.5 py-0.5 rounded-full border ${
+                              schedule.status === 'active'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80'
+                                : schedule.status === 'cancelled'
+                                  ? 'bg-red-50 text-red-600 border-red-200/80'
+                                  : 'bg-slate-100 text-slate-600 border-slate-200/80'
+                            }`}>
+                              {cfg.label}
+                            </span>
+                            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${
+                              schedule.mode === 'promosi'
+                                ? 'bg-purple-50 text-purple-700 border-purple-200/80'
+                                : 'bg-blue-50 text-blue-700 border-blue-200/80'
+                            }`}>
+                              {schedule.mode === 'promosi' ? 'Mode Promosi' : 'Normal'}
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-slate-500 font-normal mt-1 flex items-center gap-1.5">
+                            <span>Playlist Target:</span>
+                            <strong className="font-semibold text-slate-800">{schedule.playlist?.name || '—'}</strong>
+                          </p>
+                        </div>
                       </div>
-                      <p className="text-xs text-slate-500 font-normal mt-0.5">
-                        Target Playlist: <strong className="font-semibold text-slate-800">{schedule.playlist?.name || '—'}</strong>
-                      </p>
+
+                      {/* Action Controls Bar */}
+                      <div className="flex items-center gap-1.5 flex-wrap flex-shrink-0">
+                        
+                        {/* Status Quick Toggles */}
+                        {schedule.status === 'draft' && (
+                          <button
+                            onClick={() => handleStatusChange(schedule, 'active')}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-2xs transition-all active:scale-[0.97]"
+                            title="Aktifkan Penyiaran"
+                          >
+                            <Play className="w-3.5 h-3.5 fill-current" />
+                            <span>Publish</span>
+                          </button>
+                        )}
+
+                        {schedule.status === 'active' && (
+                          <button
+                            onClick={() => handleStatusChange(schedule, 'draft')}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold border border-slate-200 transition-all active:scale-[0.97]"
+                            title="Jadikan Draft"
+                          >
+                            <Pause className="w-3.5 h-3.5" />
+                            <span>Pause</span>
+                          </button>
+                        )}
+
+                        {schedule.status !== 'cancelled' && (
+                          <button
+                            onClick={() => handleStatusChange(schedule, 'cancelled')}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-500 text-xs font-medium border border-slate-200 transition-all"
+                            title="Batalkan Agenda"
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            <span>Batal</span>
+                          </button>
+                        )}
+
+                        {/* Edit Button */}
+                        <button
+                          onClick={() => openEditModal(schedule)}
+                          className="p-1.5 rounded-xl border border-slate-200/80 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                          title="Edit Agenda"
+                        >
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+
+                        {/* Delete Button */}
+                        <button
+                          onClick={() => setDeletingSchedule(schedule)}
+                          className="p-1.5 rounded-xl border border-slate-200/80 text-slate-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
+                          title="Hapus Agenda"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+
+                      </div>
+                    </div>
+
+                    {/* Timeline Metadata Info Bar */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-3 border-t border-slate-100 bg-slate-50/60 p-3.5 rounded-xl text-xs">
+                      <div className="flex items-center gap-2 text-slate-600">
+                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                        <span><strong>Tanggal:</strong> {formatDate(schedule.start_date)} – {formatDate(schedule.end_date)}</span>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-slate-600">
+                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                        <span><strong>Jam:</strong> {formatTime(schedule.start_time)} – {formatTime(schedule.end_time)}</span>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-slate-600">
+                        <MonitorPlay className="w-3.5 h-3.5 text-slate-400" />
+                        <span><strong>Perangkat:</strong> {schedule.schedule_screens?.length || 0} Layar TV</span>
+                      </div>
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          )}
 
-                  {/* Actions Group */}
-                  <div className="flex items-center gap-2 flex-wrap flex-shrink-0">
-                    {schedule.status === 'draft' && (
-                      <button
-                        onClick={() => handleStatusChange(schedule, 'active')}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-2xs transition-all active:scale-[0.97]"
-                        title="Aktifkan Penyiaran"
-                      >
-                        <Play className="w-3.5 h-3.5 fill-current" />
-                        <span>Publish</span>
-                      </button>
-                    )}
+        </div>
 
-                    {schedule.status === 'active' && (
-                      <button
-                        onClick={() => handleStatusChange(schedule, 'draft')}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold border border-slate-200 transition-all active:scale-[0.97]"
-                        title="Jadikan Draft"
-                      >
-                        <Pause className="w-3.5 h-3.5" />
-                        <span>Pause</span>
-                      </button>
-                    )}
+        {/* ── RIGHT COLUMN (4 Columns): Agenda Breakdown & Guide ── */}
+        <div className="lg:col-span-4 space-y-4">
 
-                    {schedule.status !== 'cancelled' && (
-                      <button
-                        onClick={() => handleStatusChange(schedule, 'cancelled')}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-500 text-xs font-medium border border-slate-200 transition-all"
-                        title="Batalkan Agenda"
-                      >
-                        <XCircle className="w-3.5 h-3.5" />
-                        <span>Batal</span>
-                      </button>
-                    )}
+          {/* Agenda Status Summary Card */}
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs space-y-4">
+            <h3 className="text-xs font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <CalendarClock className="w-4 h-4 text-slate-700" />
+              Ringkasan Agenda Penyiaran
+            </h3>
 
-                    <button
-                      onClick={() => openEditModal(schedule)}
-                      className="p-1.5 rounded-xl border border-slate-200/80 text-slate-500 hover:bg-slate-100 hover:text-slate-900 transition-colors"
-                      title="Edit Agenda"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </button>
-
-                    <button
-                      onClick={() => setDeletingSchedule(schedule)}
-                      className="p-1.5 rounded-xl border border-slate-200/80 text-slate-400 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
-                      title="Hapus Agenda"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Structured Metadata Row */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1">
-                  <div className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-50/70 border border-slate-200/60">
-                    <Calendar className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                    <div>
-                      <p className="text-[10px] text-slate-400 font-semibold uppercase">Rentang Tanggal</p>
-                      <p className="font-semibold text-slate-800">{formatDate(schedule.start_date)} – {formatDate(schedule.end_date)}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-50/70 border border-slate-200/60">
-                    <Clock className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                    <div>
-                      <p className="text-[10px] text-slate-400 font-semibold uppercase">Jam Tayang Harian</p>
-                      <p className="font-semibold text-slate-800">{formatTime(schedule.start_time)} – {formatTime(schedule.end_time)} WIB</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-50/70 border border-slate-200/60">
-                    <MonitorPlay className="w-4 h-4 text-slate-400 flex-shrink-0" />
-                    <div>
-                      <p className="text-[10px] text-slate-400 font-semibold uppercase">Alokasi Perangkat TV</p>
-                      <p className="font-semibold text-slate-800">{schedule.schedule_screens?.length || 0} Layar TV Terhubung</p>
-                    </div>
-                  </div>
-                </div>
-
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs p-3 rounded-xl bg-slate-50 border border-slate-200/70">
+                <span className="font-semibold text-slate-700 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  Aktif Tayang
+                </span>
+                <span className="font-bold text-slate-900">{activeSchedules} Agenda</span>
               </div>
-            );
-          })}
-        </div>
-      )}
 
-      {/* ── Operational Guide Full-Width Reference Card ── */}
-      <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs space-y-3">
-        <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
-          <Sparkles className="w-4 h-4 text-slate-700" />
-          <h3 className="text-xs font-bold text-slate-900 tracking-tight">Panduan Mode Penyiaran Sistem</h3>
-        </div>
+              <div className="flex items-center justify-between text-xs p-3 rounded-xl bg-slate-50 border border-slate-200/70">
+                <span className="font-semibold text-slate-700 flex items-center gap-2">
+                  <Megaphone className="w-4 h-4 text-purple-600" />
+                  Mode Promosi
+                </span>
+                <span className="font-bold text-slate-900">{promoSchedules} Agenda</span>
+              </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs leading-relaxed">
-          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/70 space-y-1">
-            <p className="font-bold text-slate-900">1. Mode Normal</p>
-            <p className="text-slate-500 font-normal">
-              Penayangan standar harian berdasarkan urutan playlist reguler yang dijadwalkan secara berkala.
-            </p>
+              <div className="flex items-center justify-between text-xs p-3 rounded-xl bg-slate-50 border border-slate-200/70">
+                <span className="font-semibold text-slate-700 flex items-center gap-2">
+                  <Pause className="w-4 h-4 text-slate-400" />
+                  Draft Simpanan
+                </span>
+                <span className="font-bold text-slate-900">{draftSchedules} Agenda</span>
+              </div>
+            </div>
           </div>
 
-          <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/70 space-y-1">
-            <p className="font-bold text-slate-900">2. Mode Promosi Special</p>
-            <p className="text-slate-500 font-normal">
-              Mengambil alih seluruh layar TV penyiaran selama jam tertentu untuk event penting atau pengumuman mendesak.
-            </p>
+          {/* Operational Mode Guide Card */}
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs space-y-3">
+            <h3 className="text-xs font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-slate-700" />
+              Panduan Mode Penyiaran
+            </h3>
+
+            <div className="space-y-2.5 text-xs leading-relaxed text-slate-600">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70 space-y-1">
+                <p className="font-bold text-slate-900">1. Mode Normal</p>
+                <p className="font-normal text-slate-500">Penayangan standar harian berdasarkan urutan playlist reguler.</p>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70 space-y-1">
+                <p className="font-bold text-slate-900">2. Mode Promosi Special</p>
+                <p className="font-normal text-slate-500">Mengambil alih seluruh layar TV selama rentang jam tertentu untuk event/pengumuman mendesak.</p>
+              </div>
+            </div>
           </div>
+
         </div>
+
       </div>
 
       {/* ── EDIT SCHEDULE MODAL DIALOG ── */}
