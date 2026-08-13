@@ -11,12 +11,13 @@ import {
   HardDrive,
   Loader2,
   Activity,
-  Plus,
   Upload,
-  Clock,
   Radio,
   CheckCircle2,
   AlertCircle,
+  TrendingUp,
+  Zap,
+  BarChart3,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Screen, DashboardStats } from '@/lib/types';
@@ -86,6 +87,14 @@ export default function DashboardPage() {
     }
   };
 
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 11) return 'Selamat Pagi';
+    if (hour < 15) return 'Selamat Siang';
+    if (hour < 18) return 'Selamat Sore';
+    return 'Selamat Malam';
+  };
+
   const currentDate = new Intl.DateTimeFormat('id-ID', {
     weekday: 'long',
     day: 'numeric',
@@ -105,32 +114,70 @@ export default function DashboardPage() {
     );
   }
 
+  const statCards = [
+    {
+      label: 'Layar TV',
+      value: stats.onlineScreens,
+      suffix: `/ ${stats.totalScreens}`,
+      icon: MonitorPlay,
+      color: 'text-cyan-600',
+      bgColor: 'bg-cyan-50',
+      borderColor: 'border-cyan-200/60',
+      barColor: 'bg-cyan-500',
+    },
+    {
+      label: 'Total Media',
+      value: stats.totalMedia,
+      suffix: 'File',
+      icon: ImageIcon,
+      color: 'text-emerald-600',
+      bgColor: 'bg-emerald-50',
+      borderColor: 'border-emerald-200/60',
+      barColor: 'bg-emerald-500',
+    },
+    {
+      label: 'Playlist Aktif',
+      value: stats.activePlaylists,
+      suffix: `/ ${stats.totalPlaylists}`,
+      icon: ListMusic,
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-50',
+      borderColor: 'border-purple-200/60',
+      barColor: 'bg-purple-500',
+    },
+    {
+      label: 'Jadwal Hari Ini',
+      value: stats.todaySchedules,
+      suffix: 'Aktif',
+      icon: CalendarClock,
+      color: 'text-amber-600',
+      bgColor: 'bg-amber-50',
+      borderColor: 'border-amber-200/60',
+      barColor: 'bg-amber-500',
+    },
+  ];
+
   return (
     <div className="pb-10 space-y-6">
       
-      {/* ── Corporate Clean Top Header Bar ── */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
-        <div>
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl font-bold tracking-tight text-slate-900">
-              Pusat Kontrol Digital Signage
-            </h1>
-            <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200 capitalize">
-              {userName}
-            </span>
-          </div>
-          <p className="text-xs text-slate-500 font-normal mt-1">
-            Pantau status koneksi perangkat layar, kelola media penyiaran, dan jalankan antrean tayang.
+      {/* ── Greeting Header ── */}
+      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-slate-200/60">
+        <div className="space-y-1">
+          <p className="text-xs text-slate-400 font-medium flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-dot" />
+            {currentDate}
+          </p>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+            {getGreeting()}, <span className="text-slate-600 capitalize">{userName}</span>
+          </h1>
+          <p className="text-sm text-slate-500 font-normal max-w-lg">
+            Pantau status perangkat, kelola media penyiaran, dan jalankan jadwal tayang.
           </p>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-xs font-medium text-slate-600 shadow-2xs">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            {currentDate}
-          </div>
           <Link href="/media/upload">
-            <button className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 shadow-2xs transition-all">
+            <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 shadow-lg shadow-slate-900/10 transition-all duration-200 hover:shadow-xl hover:shadow-slate-900/15 active:scale-[0.97]">
               <Upload className="w-3.5 h-3.5" />
               Upload Media
             </button>
@@ -138,70 +185,86 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* ── Asymmetric Enterprise Layout (8 Cols + 4 Cols) ── */}
+      {/* ── Stats Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
+        {statCards.map((card) => {
+          const Icon = card.icon;
+          return (
+            <div
+              key={card.label}
+              className="stat-card group bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden"
+            >
+              {/* Top accent bar */}
+              <div className={`absolute top-0 left-0 right-0 h-[3px] ${card.barColor} opacity-80 rounded-t-2xl`} />
+              
+              <div className="flex items-start justify-between mb-3">
+                <div className={`w-10 h-10 rounded-xl ${card.bgColor} flex items-center justify-center ${card.color} transition-transform duration-300 group-hover:scale-110`}>
+                  <Icon className="w-5 h-5" />
+                </div>
+                <TrendingUp className="w-3.5 h-3.5 text-slate-300" />
+              </div>
+
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{card.label}</p>
+                <p className="text-2xl font-bold text-slate-900 tracking-tight">
+                  {card.value}
+                  <span className="text-xs font-medium text-slate-400 ml-1.5">{card.suffix}</span>
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── Main Content Grid (8 + 4) ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-        {/* ── LEFT COLUMN (8 Columns): Screen Status & Activity Stream ── */}
+        {/* ── LEFT: Screen Monitoring ── */}
         <div className="lg:col-span-8 space-y-6">
 
-          {/* Quick Metrics Cards Strip */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-2xs">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Layar TV</span>
-              <p className="text-2xl font-bold text-slate-900 mt-1">{stats.onlineScreens} <span className="text-xs font-medium text-slate-400">/ {stats.totalScreens}</span></p>
-            </div>
-
-            <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-2xs">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Media</span>
-              <p className="text-2xl font-bold text-slate-900 mt-1">{stats.totalMedia} <span className="text-xs font-medium text-slate-400">File</span></p>
-            </div>
-
-            <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-2xs">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Playlist</span>
-              <p className="text-2xl font-bold text-slate-900 mt-1">{stats.activePlaylists} <span className="text-xs font-medium text-slate-400">Aktif</span></p>
-            </div>
-
-            <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-2xs">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Jadwal</span>
-              <p className="text-2xl font-bold text-slate-900 mt-1">{stats.todaySchedules} <span className="text-xs font-medium text-slate-400">Hari ini</span></p>
-            </div>
-          </div>
-
-          {/* Real-time Perangkat Monitoring Table */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-200/80 flex items-center justify-between bg-slate-50/50">
+          {/* Real-time Device Table */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between">
               <div>
-                <h2 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                  <Radio className="w-4 h-4 text-blue-600 animate-pulse" />
+                <h2 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                    <Radio className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
+                  </div>
                   Status Perangkat Penyiaran
                 </h2>
-                <p className="text-xs text-slate-500 font-normal mt-0.5">
-                  Daftar seluruh TV Digital Signage yang terhubung ke server secara real-time.
+                <p className="text-xs text-slate-500 font-normal mt-1 ml-[38px]">
+                  Monitoring real-time seluruh TV Digital Signage yang terhubung.
                 </p>
               </div>
               <Link
                 href="/screens"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-all"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-semibold transition-all border border-slate-200/60 hover:border-slate-300 group"
               >
                 Kelola Layar
-                <ArrowRight className="w-3.5 h-3.5" />
+                <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
               </Link>
             </div>
 
             <div className="p-0">
               {screens.length === 0 ? (
                 <div className="px-6 py-16 text-center">
-                  <MonitorPlay className="w-10 h-10 mx-auto text-slate-300 mb-3" />
-                  <p className="text-sm font-medium text-slate-900">Belum ada layar terdaftar</p>
-                  <p className="text-xs text-slate-500 mt-1 font-normal">
+                  <div className="w-14 h-14 mx-auto rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center mb-4">
+                    <MonitorPlay className="w-7 h-7 text-slate-300" />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900">Belum ada layar terdaftar</p>
+                  <p className="text-xs text-slate-500 mt-1 font-normal max-w-xs mx-auto">
                     Tambahkan perangkat pertama Anda untuk memulai penyiaran media.
                   </p>
+                  <Link href="/screens" className="inline-flex items-center gap-1.5 mt-4 text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 px-4 py-2 rounded-xl border border-blue-200/60 transition-colors">
+                    Tambah Layar
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b border-slate-200/80 bg-slate-50/80">
+                      <tr className="border-b border-slate-100 bg-slate-50/50">
                         <th className="text-left font-semibold text-slate-500 px-6 py-3 tracking-wider uppercase text-[10px]">
                           Identitas TV
                         </th>
@@ -209,24 +272,28 @@ export default function DashboardPage() {
                           Lokasi / Area
                         </th>
                         <th className="text-left font-semibold text-slate-500 px-6 py-3 tracking-wider uppercase text-[10px]">
-                          Status Perangkat
+                          Status
                         </th>
                         <th className="text-left font-semibold text-slate-500 px-6 py-3 tracking-wider uppercase text-[10px]">
                           Terakhir Aktif
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-slate-100/80">
                       {screens.map((screen) => (
                         <tr
                           key={screen.id}
-                          className="hover:bg-slate-50/80 transition-colors duration-150"
+                          className="hover:bg-slate-50/60 transition-colors duration-150"
                         >
-                          <td className="px-6 py-3.5">
+                          <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
-                              <div className={`w-2 h-2 rounded-full ${
+                              <div className={`relative w-2.5 h-2.5 rounded-full ${
                                 screen.status === 'online' ? 'bg-emerald-500' : 'bg-slate-300'
-                              }`} />
+                              }`}>
+                                {screen.status === 'online' && (
+                                  <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-30" />
+                                )}
+                              </div>
                               <div>
                                 <p className="text-xs font-bold text-slate-900">
                                   {screen.name}
@@ -237,26 +304,26 @@ export default function DashboardPage() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-3.5">
+                          <td className="px-6 py-4">
                             <p className="text-xs font-medium text-slate-800">{screen.site}</p>
                             {screen.area && (
                               <p className="text-[11px] text-slate-400 font-normal mt-0.5">{screen.area}</p>
                             )}
                           </td>
-                          <td className="px-6 py-3.5">
+                          <td className="px-6 py-4">
                             {screen.status === 'online' ? (
-                              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200/60">
+                              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/60">
                                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                                 Online
                               </span>
                             ) : (
-                              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">
+                              <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
                                 <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
                                 {screen.status === 'inactive' ? 'Tidak Aktif' : 'Offline'}
                               </span>
                             )}
                           </td>
-                          <td className="px-6 py-3.5 text-xs text-slate-500 font-normal">
+                          <td className="px-6 py-4 text-xs text-slate-500 font-normal">
                             {screen.last_seen
                               ? getRelativeTime(screen.last_seen)
                               : '—'}
@@ -272,112 +339,148 @@ export default function DashboardPage() {
 
         </div>
 
-        {/* ── RIGHT COLUMN (4 Columns): Performa Gauge, Storage Meter & Shortcuts ── */}
-        <div className="lg:col-span-4 space-y-6">
+        {/* ── RIGHT: Performance, Storage & Shortcuts ── */}
+        <div className="lg:col-span-4 space-y-5">
 
-          {/* Device Connectivity Status Meter */}
-          <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs space-y-4">
+          {/* Device Performance Meter */}
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                <Activity className="w-4 h-4 text-emerald-600" />
-                Status Performa Layar
+              <h3 className="text-xs font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
+                  <BarChart3 className="w-3.5 h-3.5 text-emerald-600" />
+                </div>
+                Performa Layar
               </h3>
-              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
-                {screenOnlinePercentage}% Online
+              <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${
+                screenOnlinePercentage >= 80
+                  ? 'text-emerald-600 bg-emerald-50 border-emerald-100'
+                  : screenOnlinePercentage >= 50
+                    ? 'text-amber-600 bg-amber-50 border-amber-100'
+                    : 'text-red-600 bg-red-50 border-red-100'
+              }`}>
+                {screenOnlinePercentage}%
               </span>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <div className="flex justify-between text-xs text-slate-500">
-                <span>Total Perangkat</span>
-                <span className="font-semibold text-slate-800">{stats.onlineScreens} dari {stats.totalScreens} TV</span>
+                <span>Perangkat Terhubung</span>
+                <span className="font-semibold text-slate-800">{stats.onlineScreens} / {stats.totalScreens} TV</span>
               </div>
-              <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+              <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-emerald-500 rounded-full transition-all duration-700"
+                  className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-1000 ease-out"
                   style={{ width: `${screenOnlinePercentage}%` }}
                 />
               </div>
             </div>
 
-            <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                {stats.onlineScreens} Terhubung
-              </span>
-              <span className="flex items-center gap-1.5">
-                <AlertCircle className="w-3.5 h-3.5 text-slate-400" />
-                {stats.offlineScreens} Terputus
-              </span>
+            <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-3">
+              <div className="flex items-center gap-2 text-xs text-slate-600 bg-emerald-50/50 rounded-xl px-3 py-2.5 border border-emerald-100/60">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+                <div>
+                  <p className="font-bold text-emerald-700">{stats.onlineScreens}</p>
+                  <p className="text-[10px] text-emerald-600">Terhubung</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 rounded-xl px-3 py-2.5 border border-slate-200/60">
+                <AlertCircle className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                <div>
+                  <p className="font-bold text-slate-700">{stats.offlineScreens}</p>
+                  <p className="text-[10px] text-slate-500">Terputus</p>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Storage Capacity Gauge */}
-          <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs space-y-4">
+          {/* Storage */}
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold text-slate-900 tracking-tight flex items-center gap-2">
-                <HardDrive className="w-4 h-4 text-blue-600" />
-                Kapasitas Penyimpanan
+              <h3 className="text-xs font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                  <HardDrive className="w-3.5 h-3.5 text-blue-600" />
+                </div>
+                Penyimpanan Media
               </h3>
-              <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
+              <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200/60">
                 {formatStorageUsed(stats.totalStorageUsed)}
               </span>
             </div>
 
-            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200/60">
-              <p className="text-[11px] text-slate-500 font-normal">
-                Media yang terunggah digunakan untuk penyiaran di seluruh layar TV cabang.
-              </p>
-              <div className="flex items-center justify-between text-xs font-semibold text-slate-700 mt-2">
-                <span>Total Media File</span>
-                <span>{stats.totalMedia} File</span>
+            <div className="bg-gradient-to-br from-slate-50 to-blue-50/40 p-4 rounded-xl border border-slate-200/60">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white border border-slate-200/60 flex items-center justify-center shadow-sm">
+                  <Zap className="w-4 h-4 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-800">{stats.totalMedia} File Media</p>
+                  <p className="text-[10px] text-slate-500 font-normal mt-0.5">
+                    Digunakan untuk penyiaran layar TV
+                  </p>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Quick Action Shortcuts */}
-          <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-2xs space-y-3">
-            <h3 className="text-xs font-bold text-slate-900 tracking-tight mb-2">
-              Menu Pintas Akses Cepat
+          {/* Quick Actions */}
+          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm space-y-3">
+            <h3 className="text-xs font-bold text-slate-900 tracking-tight flex items-center gap-2.5 mb-3">
+              <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
+                <Zap className="w-3.5 h-3.5 text-slate-600" />
+              </div>
+              Akses Cepat
             </h3>
 
-            <Link href="/media/upload" className="flex items-center justify-between p-3 rounded-lg border border-slate-200/80 hover:bg-slate-50 hover:border-slate-300 transition-all group">
+            <Link href="/media/upload" className="quick-action-link flex items-center justify-between p-3.5 rounded-xl border border-slate-200/60 hover:bg-blue-50/50 hover:border-blue-200/60 transition-all duration-200 group">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
                   <Upload className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-900 group-hover:text-blue-600 transition-colors">Unggah Media</p>
+                  <p className="text-xs font-bold text-slate-900 group-hover:text-blue-700 transition-colors">Unggah Media</p>
                   <p className="text-[10px] text-slate-400 font-normal">Tambah video/gambar baru</p>
                 </div>
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+              <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all duration-200" />
             </Link>
 
-            <Link href="/playlist" className="flex items-center justify-between p-3 rounded-lg border border-slate-200/80 hover:bg-slate-50 hover:border-slate-300 transition-all group">
+            <Link href="/playlist" className="quick-action-link flex items-center justify-between p-3.5 rounded-xl border border-slate-200/60 hover:bg-purple-50/50 hover:border-purple-200/60 transition-all duration-200 group">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center flex-shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0 group-hover:bg-purple-100 transition-colors">
                   <ListMusic className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">Kelola Playlist</p>
+                  <p className="text-xs font-bold text-slate-900 group-hover:text-purple-700 transition-colors">Kelola Playlist</p>
                   <p className="text-[10px] text-slate-400 font-normal">Atur urutan tayang slide</p>
                 </div>
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+              <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-purple-500 group-hover:translate-x-1 transition-all duration-200" />
             </Link>
 
-            <Link href="/schedule" className="flex items-center justify-between p-3 rounded-lg border border-slate-200/80 hover:bg-slate-50 hover:border-slate-300 transition-all group">
+            <Link href="/schedule" className="quick-action-link flex items-center justify-between p-3.5 rounded-xl border border-slate-200/60 hover:bg-amber-50/50 hover:border-amber-200/60 transition-all duration-200 group">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-100 transition-colors">
                   <CalendarClock className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-900 group-hover:text-amber-600 transition-colors">Jadwal Penyiaran</p>
+                  <p className="text-xs font-bold text-slate-900 group-hover:text-amber-700 transition-colors">Jadwal Penyiaran</p>
                   <p className="text-[10px] text-slate-400 font-normal">Set waktu tayang otomatis</p>
                 </div>
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+              <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-amber-500 group-hover:translate-x-1 transition-all duration-200" />
+            </Link>
+
+            <Link href="/screens" className="quick-action-link flex items-center justify-between p-3.5 rounded-xl border border-slate-200/60 hover:bg-cyan-50/50 hover:border-cyan-200/60 transition-all duration-200 group">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center flex-shrink-0 group-hover:bg-cyan-100 transition-colors">
+                  <MonitorPlay className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-900 group-hover:text-cyan-700 transition-colors">Kelola Layar</p>
+                  <p className="text-[10px] text-slate-400 font-normal">Atur perangkat TV terhubung</p>
+                </div>
+              </div>
+              <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-cyan-500 group-hover:translate-x-1 transition-all duration-200" />
             </Link>
           </div>
 

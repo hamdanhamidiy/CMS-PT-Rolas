@@ -156,6 +156,44 @@
   to { width: 100%; }
 }
 
+@keyframes drawer-slide-in {
+  from {
+    transform: translateX(-100%);
+    opacity: 0.8;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes drawer-backdrop-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes drawer-item-in {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes stat-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .animate-fade-in {
   animation: fade-in 0.3s ease-out;
 }
@@ -175,17 +213,17 @@
 /* Stagger children animation */
 .stagger-children > * {
   opacity: 0;
-  animation: slide-up 0.35s ease-out forwards;
+  animation: stat-card-in 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
 .stagger-children > *:nth-child(1) { animation-delay: 0ms; }
-.stagger-children > *:nth-child(2) { animation-delay: 50ms; }
-.stagger-children > *:nth-child(3) { animation-delay: 100ms; }
-.stagger-children > *:nth-child(4) { animation-delay: 150ms; }
-.stagger-children > *:nth-child(5) { animation-delay: 200ms; }
-.stagger-children > *:nth-child(6) { animation-delay: 250ms; }
-.stagger-children > *:nth-child(7) { animation-delay: 300ms; }
-.stagger-children > *:nth-child(8) { animation-delay: 350ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 60ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 120ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 180ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 240ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 300ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 360ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 420ms; }
 
 /* ============================================
    Interactive States
@@ -226,6 +264,81 @@
 
 .btn-press:active {
   transform: scale(0.97);
+}
+
+/* ============================================
+   Sidebar Nav Items
+   ============================================ */
+
+.sidebar-nav-item {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  will-change: background-color, color;
+}
+
+.sidebar-nav-item:active {
+  transform: scale(0.98);
+}
+
+/* ============================================
+   Topbar
+   ============================================ */
+
+.topbar-header {
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* ============================================
+   Mobile Drawer Animations
+   ============================================ */
+
+.mobile-drawer-backdrop {
+  animation: drawer-backdrop-in 0.25s ease-out forwards;
+}
+
+.mobile-drawer-panel {
+  animation: drawer-slide-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.mobile-drawer-item {
+  opacity: 0;
+  animation: drawer-item-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ============================================
+   Stat Cards
+   ============================================ */
+
+.stat-card {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+}
+
+/* ============================================
+   Quick Action Links
+   ============================================ */
+
+.quick-action-link {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.quick-action-link:active {
+  transform: scale(0.99);
+}
+
+/* ============================================
+   No Scrollbar Utility
+   ============================================ */
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 
 /* Status indicator dot */
