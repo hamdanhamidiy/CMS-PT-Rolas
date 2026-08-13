@@ -57,13 +57,27 @@ export default function ActivityPage() {
 
   const loadLogs = async () => {
     const supabase = createClient();
-    const { data } = await supabase
+    let { data, error } = await supabase
       .from('activity_logs')
-      .select('*, profile:profiles(full_name, email)')
+      .select('*, profiles(full_name, email)')
       .order('created_at', { ascending: false })
       .limit(100);
 
-    setLogs(data || []);
+    if (error || !data) {
+      const { data: rawData } = await supabase
+        .from('activity_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      data = rawData as any;
+    }
+
+    const formattedLogs = (data || []).map((item: any) => ({
+      ...item,
+      profile: Array.isArray(item.profiles) ? item.profiles[0] : item.profiles || item.profile || null,
+    }));
+
+    setLogs(formattedLogs);
     setLoading(false);
   };
 
