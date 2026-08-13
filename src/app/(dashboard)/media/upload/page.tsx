@@ -22,7 +22,7 @@ import Link from 'next/link';
 import { formatFileSize } from '@/lib/utils';
 import { toast } from 'sonner';
 
-const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB (Supabase Free Plan limit)
 const ACCEPTED_TYPES = [
   'video/mp4',
   'video/webm',
@@ -53,8 +53,8 @@ export default function UploadMediaPage() {
     }
 
     if (f.size > MAX_FILE_SIZE) {
-      toast.error('File terlalu besar', {
-        description: `Maksimal ${formatFileSize(MAX_FILE_SIZE)}. File Anda ${formatFileSize(f.size)}.`,
+      toast.error('File melebihi batas Supabase Free Plan (50 MB)', {
+        description: `Ukuran file Anda ${formatFileSize(f.size)}. Silakan kompres video menjadi di bawah 50 MB.`,
       });
       return;
     }
