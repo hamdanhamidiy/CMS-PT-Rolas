@@ -19,7 +19,6 @@ import {
   Plus,
   Layers,
   ExternalLink,
-  ShieldCheck,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Screen, DashboardStats } from '@/lib/types';
@@ -118,36 +117,36 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
-        <Loader2 className="w-5 h-5 animate-spin text-slate-400" />
-        <p className="text-xs text-slate-500 font-medium">Memuat dashboard...</p>
+        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+        <p className="text-sm text-slate-500 font-medium">Memuat dashboard...</p>
       </div>
     );
   }
 
   return (
-    <div className="pb-12 space-y-6 max-w-7xl mx-auto">
+    <div className="pb-16 space-y-6 max-w-7xl mx-auto">
       
       {/* ── Header Matching Dribbble Reference ── */}
       <div className="space-y-3">
         {/* Date & Greeting Row */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <p className="text-xs font-medium text-slate-400 mb-1">{currentDate}</p>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+            <p className="text-sm font-medium text-slate-400 mb-1">{currentDate}</p>
+            <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
               {getGreeting()}! <span className="capitalize">{userName}</span>,
             </h1>
           </div>
 
           <div className="flex items-center gap-2.5">
             <Link href="/screens">
-              <button className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200/80 shadow-2xs transition-all">
-                <MonitorPlay className="w-3.5 h-3.5 text-slate-500" />
+              <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-sm font-semibold border border-slate-200/90 shadow-2xs transition-all">
+                <MonitorPlay className="w-4 h-4 text-slate-500" />
                 Kelola Layar
               </button>
             </Link>
             <Link href="/media/upload">
-              <button className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-2xs transition-all active:scale-[0.98]">
-                <Plus className="w-3.5 h-3.5" />
+              <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold shadow-2xs transition-all active:scale-[0.98]">
+                <Plus className="w-4 h-4" />
                 Upload Media
               </button>
             </Link>
@@ -155,42 +154,42 @@ export default function DashboardPage() {
         </div>
 
         {/* Dribbble Signature Inline Pills Bar */}
-        <div className="flex flex-wrap items-center gap-2.5 p-1 rounded-2xl bg-slate-100/70 border border-slate-200/60">
+        <div className="flex flex-wrap items-center gap-3 p-1.5 rounded-2xl bg-slate-100/70 border border-slate-200/70">
           <Link
             href="/screens"
-            className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 px-3.5 py-1.5 rounded-xl border border-slate-200/80 text-xs font-semibold text-slate-700 transition-all shadow-2xs"
+            className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 px-4 py-2 rounded-xl border border-slate-200/90 text-sm font-semibold text-slate-700 transition-all shadow-2xs"
           >
-            <Clock className="w-3.5 h-3.5 text-slate-500" />
+            <Clock className="w-4 h-4 text-slate-500" />
             <span>{stats.onlineScreens}/{stats.totalScreens} Layar TV Online</span>
-            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] px-2 py-0.5 rounded-full font-bold">
+            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs px-2.5 py-0.5 rounded-full font-bold">
               {screenOnlinePercentage}%
             </span>
           </Link>
 
           <Link
             href="/media"
-            className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 px-3.5 py-1.5 rounded-xl border border-slate-200/80 text-xs font-semibold text-slate-700 transition-all shadow-2xs"
+            className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 px-4 py-2 rounded-xl border border-slate-200/90 text-sm font-semibold text-slate-700 transition-all shadow-2xs"
           >
-            <ImageIcon className="w-3.5 h-3.5 text-slate-500" />
+            <ImageIcon className="w-4 h-4 text-slate-500" />
             <span>{stats.totalMedia} File Media</span>
-            <span className="bg-slate-100 text-slate-600 border border-slate-200 text-[10px] px-2 py-0.5 rounded-full font-bold">
+            <span className="bg-slate-100 text-slate-700 border border-slate-200 text-xs px-2.5 py-0.5 rounded-full font-bold">
               {formatStorageUsed(stats.totalStorageUsed)}
             </span>
           </Link>
 
           <Link
             href="/playlist"
-            className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 px-3.5 py-1.5 rounded-xl border border-slate-200/80 text-xs font-semibold text-slate-700 transition-all shadow-2xs"
+            className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 px-4 py-2 rounded-xl border border-slate-200/90 text-sm font-semibold text-slate-700 transition-all shadow-2xs"
           >
-            <ListMusic className="w-3.5 h-3.5 text-slate-500" />
+            <ListMusic className="w-4 h-4 text-slate-500" />
             <span>{stats.activePlaylists} Playlist Aktif</span>
           </Link>
 
           <Link
             href="/schedule"
-            className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 px-3.5 py-1.5 rounded-xl border border-slate-200/80 text-xs font-semibold text-slate-700 transition-all shadow-2xs"
+            className="inline-flex items-center gap-2 bg-white hover:bg-slate-50 px-4 py-2 rounded-xl border border-slate-200/90 text-sm font-semibold text-slate-700 transition-all shadow-2xs"
           >
-            <CalendarClock className="w-3.5 h-3.5 text-slate-500" />
+            <CalendarClock className="w-4 h-4 text-slate-500" />
             <span>{stats.todaySchedules} Jadwal Hari Ini</span>
           </Link>
         </div>
@@ -198,14 +197,14 @@ export default function DashboardPage() {
 
       {/* ── Main Table Card: Status Perangkat Penyiaran ── */}
       <div className="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="px-6 py-4.5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100">
-              <Radio className="w-4 h-4 animate-pulse" />
+            <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100">
+              <Radio className="w-4.5 h-4.5 animate-pulse" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-slate-900 tracking-tight">Status Perangkat Penyiaran</h2>
-              <p className="text-[11px] text-slate-500 font-normal">
+              <h2 className="text-base font-bold text-slate-900 tracking-tight">Status Perangkat Penyiaran</h2>
+              <p className="text-xs text-slate-500 font-normal">
                 Monitoring status real-time seluruh TV Digital Signage yang terhubung.
               </p>
             </div>
@@ -215,7 +214,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/60 text-xs font-medium">
             <button
               onClick={() => setActiveScreenFilter('all')}
-              className={`px-3 py-1 rounded-lg transition-all ${
+              className={`px-3.5 py-1.5 rounded-lg transition-all ${
                 activeScreenFilter === 'all'
                   ? 'bg-white text-slate-900 font-bold shadow-2xs'
                   : 'text-slate-500 hover:text-slate-800'
@@ -225,7 +224,7 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={() => setActiveScreenFilter('online')}
-              className={`px-3 py-1 rounded-lg transition-all ${
+              className={`px-3.5 py-1.5 rounded-lg transition-all ${
                 activeScreenFilter === 'online'
                   ? 'bg-white text-emerald-700 font-bold shadow-2xs'
                   : 'text-slate-500 hover:text-slate-800'
@@ -235,7 +234,7 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={() => setActiveScreenFilter('offline')}
-              className={`px-3 py-1 rounded-lg transition-all ${
+              className={`px-3.5 py-1.5 rounded-lg transition-all ${
                 activeScreenFilter === 'offline'
                   ? 'bg-white text-slate-700 font-bold shadow-2xs'
                   : 'text-slate-500 hover:text-slate-800'
@@ -251,25 +250,25 @@ export default function DashboardPage() {
           {filteredScreens.length === 0 ? (
             <div className="px-6 py-12 text-center">
               <MonitorPlay className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-              <p className="text-xs font-semibold text-slate-700">Tidak ada layar TV pada filter ini</p>
+              <p className="text-sm font-semibold text-slate-700">Tidak ada layar TV pada filter ini</p>
             </div>
           ) : (
-            <table className="w-full text-xs">
+            <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-100 bg-slate-50/50 text-slate-400">
-                  <th className="text-left font-bold px-6 py-3 tracking-wider uppercase text-[10px]">
+                  <th className="text-left font-bold px-6 py-3.5 tracking-wider uppercase text-xs">
                     Identitas TV
                   </th>
-                  <th className="text-left font-bold px-6 py-3 tracking-wider uppercase text-[10px]">
+                  <th className="text-left font-bold px-6 py-3.5 tracking-wider uppercase text-xs">
                     Lokasi / Area
                   </th>
-                  <th className="text-left font-bold px-6 py-3 tracking-wider uppercase text-[10px]">
+                  <th className="text-left font-bold px-6 py-3.5 tracking-wider uppercase text-xs">
                     Status Penyiaran
                   </th>
-                  <th className="text-left font-bold px-6 py-3 tracking-wider uppercase text-[10px]">
+                  <th className="text-left font-bold px-6 py-3.5 tracking-wider uppercase text-xs">
                     Terakhir Aktif
                   </th>
-                  <th className="text-right font-bold px-6 py-3 tracking-wider uppercase text-[10px]">
+                  <th className="text-right font-bold px-6 py-3.5 tracking-wider uppercase text-xs">
                     Aksi
                   </th>
                 </tr>
@@ -277,47 +276,48 @@ export default function DashboardPage() {
               <tbody className="divide-y divide-slate-100">
                 {filteredScreens.map((screen) => (
                   <tr key={screen.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-6 py-3.5">
+                    <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className={`w-2.5 h-2.5 rounded-full ${
+                        <div className={`w-3 h-3 rounded-full ${
                           screen.status === 'online' ? 'bg-emerald-500' : 'bg-slate-300'
                         }`} />
                         <div>
-                          <p className="font-bold text-slate-900">{screen.name}</p>
-                          <span className="inline-block text-slate-400 font-mono text-[10px]">
+                          <p className="font-bold text-slate-900 text-sm">{screen.name}</p>
+                          <span className="inline-block text-slate-400 font-mono text-xs mt-0.5">
                             {screen.screen_code}
                           </span>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-3.5">
-                      <p className="font-semibold text-slate-800">{screen.site}</p>
-                      {screen.area && <p className="text-[10px] text-slate-400 font-normal">{screen.area}</p>}
+                    <td className="px-6 py-4">
+                      <p className="font-semibold text-slate-800 text-sm">{screen.site}</p>
+                      {screen.area && <p className="text-xs text-slate-400 font-normal mt-0.5">{screen.area}</p>}
                     </td>
-                    <td className="px-6 py-3.5">
+                    <td className="px-6 py-4">
                       {screen.status === 'online' ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                           Online (Menyiarkan)
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
                           <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
                           Terputus / Offline
                         </span>
                       )}
                     </td>
-                    <td className="px-6 py-3.5 text-slate-500 font-medium">
+                    <td className="px-6 py-4 text-slate-500 font-medium text-xs">
                       {screen.last_seen ? getRelativeTime(screen.last_seen) : '—'}
                     </td>
-                    <td className="px-6 py-3.5 text-right">
+                    <td className="px-6 py-4 text-right">
+                      {/* Black button for Buka Player as requested by user */}
                       <Link
                         href={`/player?code=${screen.screen_code}`}
                         target="_blank"
-                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:text-blue-800 hover:underline"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-2xs transition-all active:scale-[0.97]"
                       >
                         <span>Buka Player</span>
-                        <ExternalLink className="w-3 h-3 text-slate-400" />
+                        <ExternalLink className="w-3.5 h-3.5 text-slate-300" />
                       </Link>
                     </td>
                   </tr>
@@ -332,20 +332,20 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
         {/* ── LEFT: Schedule Timeline Widget ── */}
-        <div className="lg:col-span-7 bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 border border-purple-100">
-                <CalendarClock className="w-4 h-4" />
+        <div className="lg:col-span-7 bg-white rounded-2xl p-6 border border-slate-200/80 shadow-2xs space-y-4">
+          <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 border border-purple-100">
+                <CalendarClock className="w-4.5 h-4.5" />
               </div>
               <div>
-                <h3 className="text-xs font-bold text-slate-900 tracking-tight">Jadwal Tayang Penyiaran</h3>
-                <p className="text-[10px] text-slate-400">Penyiaran otomatis yang aktif hari ini</p>
+                <h3 className="text-base font-bold text-slate-900 tracking-tight">Jadwal Tayang Penyiaran</h3>
+                <p className="text-xs text-slate-400">Penyiaran otomatis yang aktif hari ini</p>
               </div>
             </div>
             <Link href="/schedule" className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1">
               Lihat Semua
-              <ArrowRight className="w-3.5 h-3.5" />
+              <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
 
@@ -356,47 +356,47 @@ export default function DashboardPage() {
               return (
                 <div
                   key={day}
-                  className={`py-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+                  className={`py-2 rounded-lg text-xs transition-all cursor-pointer ${
                     isToday
                       ? 'bg-blue-600 text-white font-bold shadow-2xs'
                       : 'text-slate-500 hover:text-slate-800 font-medium'
                   }`}
                 >
-                  <p className="text-[9px] uppercase tracking-wider opacity-80">{day}</p>
-                  <p className="text-xs font-bold mt-0.5">{13 + idx}</p>
+                  <p className="text-[10px] uppercase tracking-wider opacity-80">{day}</p>
+                  <p className="text-sm font-bold mt-0.5">{13 + idx}</p>
                 </div>
               );
             })}
           </div>
 
           {/* Schedule List */}
-          <div className="space-y-2.5">
-            <div className="p-3.5 rounded-xl border border-slate-200/80 bg-white hover:border-blue-200 transition-all flex items-center justify-between border-l-4 border-l-blue-600">
+          <div className="space-y-3">
+            <div className="p-4 rounded-xl border border-slate-200/80 bg-white hover:border-blue-200 transition-all flex items-center justify-between border-l-4 border-l-blue-600">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
+                  <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-md">
                     08:00 - 17:00 WIB
                   </span>
-                  <span className="text-xs font-bold text-slate-900">Penyiaran Utama PT Rolas</span>
+                  <span className="text-sm font-bold text-slate-900">Penyiaran Utama PT Rolas</span>
                 </div>
-                <p className="text-[11px] text-slate-500">Playlist: Pengumuman Layanan Rumah Sakit (8 Slide)</p>
+                <p className="text-xs text-slate-500">Playlist: Pengumuman Layanan Rumah Sakit (8 Slide)</p>
               </div>
-              <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+              <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
                 Berjalan
               </span>
             </div>
 
-            <div className="p-3.5 rounded-xl border border-slate-200/80 bg-white hover:border-purple-200 transition-all flex items-center justify-between border-l-4 border-l-purple-600">
+            <div className="p-4 rounded-xl border border-slate-200/80 bg-white hover:border-purple-200 transition-all flex items-center justify-between border-l-4 border-l-purple-600">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md">
+                  <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2.5 py-0.5 rounded-md">
                     07:00 - 20:00 WIB
                   </span>
-                  <span className="text-xs font-bold text-slate-900">Tayangan Edukasi Kesehatan</span>
+                  <span className="text-sm font-bold text-slate-900">Tayangan Edukasi Kesehatan</span>
                 </div>
-                <p className="text-[11px] text-slate-500">Playlist: Info Dokter & Fasilitas Medika</p>
+                <p className="text-xs text-slate-500">Playlist: Info Dokter & Fasilitas Medika</p>
               </div>
-              <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+              <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
                 Berjalan
               </span>
             </div>
@@ -407,18 +407,18 @@ export default function DashboardPage() {
         <div className="lg:col-span-5 space-y-4">
           
           {/* Health Box */}
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs space-y-4">
+          <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-2xs space-y-4">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-100">
-                  <BarChart3 className="w-4 h-4" />
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 border border-emerald-100">
+                  <BarChart3 className="w-4.5 h-4.5" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold text-slate-900 tracking-tight">Kesehatan Perangkat TV</h3>
-                  <p className="text-[10px] text-slate-400">Indikator stabilitas konektivitas</p>
+                  <h3 className="text-base font-bold text-slate-900 tracking-tight">Kesehatan Perangkat TV</h3>
+                  <p className="text-xs text-slate-400">Indikator stabilitas konektivitas</p>
                 </div>
               </div>
-              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+              <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
                 {screenOnlinePercentage}% Optimal
               </span>
             </div>
@@ -436,47 +436,47 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2.5 pt-1">
-              <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-100 flex items-center gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <div className="p-3.5 rounded-xl bg-emerald-50/60 border border-emerald-100 flex items-center gap-3">
+                <CheckCircle2 className="w-4.5 h-4.5 text-emerald-600 flex-shrink-0" />
                 <div>
-                  <p className="text-xs font-bold text-emerald-900">{stats.onlineScreens} TV</p>
-                  <p className="text-[10px] text-emerald-700 font-medium">Terhubung Normal</p>
+                  <p className="text-sm font-bold text-emerald-900">{stats.onlineScreens} TV</p>
+                  <p className="text-xs text-emerald-700 font-medium">Terhubung Normal</p>
                 </div>
               </div>
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center gap-2.5">
-                <AlertCircle className="w-4 h-4 text-slate-400 flex-shrink-0" />
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center gap-3">
+                <AlertCircle className="w-4.5 h-4.5 text-slate-400 flex-shrink-0" />
                 <div>
-                  <p className="text-xs font-bold text-slate-800">{stats.offlineScreens} TV</p>
-                  <p className="text-[10px] text-slate-500 font-medium">Terputus / Off</p>
+                  <p className="text-sm font-bold text-slate-800">{stats.offlineScreens} TV</p>
+                  <p className="text-xs text-slate-500 font-medium">Terputus / Off</p>
                 </div>
               </div>
             </div>
           </div>
 
           {/* Storage Box */}
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-2xs space-y-3">
+          <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-2xs space-y-3.5">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100">
-                  <HardDrive className="w-4 h-4" />
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100">
+                  <HardDrive className="w-4.5 h-4.5" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-bold text-slate-900 tracking-tight">Kapasitas Penyimpanan</h3>
-                  <p className="text-[10px] text-slate-400">Total file media tersimpan</p>
+                  <h3 className="text-base font-bold text-slate-900 tracking-tight">Kapasitas Penyimpanan</h3>
+                  <p className="text-xs text-slate-400">Total file media tersimpan</p>
                 </div>
               </div>
-              <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200/60">
+              <span className="text-xs font-bold text-slate-700 bg-slate-100 px-3 py-1 rounded-lg border border-slate-200/60">
                 {formatStorageUsed(stats.totalStorageUsed)}
               </span>
             </div>
 
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <Layers className="w-4 h-4 text-blue-600" />
+            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/60 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Layers className="w-4.5 h-4.5 text-blue-600" />
                 <span className="text-xs font-semibold text-slate-800">{stats.totalMedia} File Gambar & Video</span>
               </div>
-              <Link href="/media/upload" className="text-[11px] font-bold text-blue-600 hover:underline">
+              <Link href="/media/upload" className="text-xs font-bold text-blue-600 hover:underline">
                 + Upload
               </Link>
             </div>
