@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { Media, PlaylistItem } from '@/lib/types';
 import Logo from '@/components/shared/Logo';
-import { Tv, KeyRound, Loader2, Sparkles, Maximize, Minimize, Expand, LogOut } from 'lucide-react';
+import { Tv, KeyRound, Loader2, Sparkles, Maximize, Minimize, Expand, LogOut, Volume2, VolumeX } from 'lucide-react';
 
 // ============================================
 // Constants
@@ -33,7 +33,9 @@ export default function PlayerPage() {
   const [fitMode, setFitMode] = useState<'contain' | 'cover' | 'fill'>('contain');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const userExplicitlyMutedRef = useRef(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
@@ -49,13 +51,19 @@ export default function PlayerPage() {
     playlistRef.current = playlist;
   }, [playlist]);
 
-  // Auto-hide floating controls after inactivity
+  // Auto-hide floating controls after inactivity & auto-unmute on user interaction if muted by browser
   const handleUserActivity = () => {
     setShowControls(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     controlsTimeoutRef.current = setTimeout(() => {
       setShowControls(false);
     }, 4000);
+
+    // Auto-unmute on first user click/touch if browser blocked unmuted autoplay
+    if (videoRef.current && videoRef.current.muted && !userExplicitlyMutedRef.current) {
+      videoRef.current.muted = false;
+      setIsMuted(false);
+    }
   };
 
   useEffect(() => {
@@ -105,6 +113,20 @@ export default function PlayerPage() {
       if (prev === 'cover') return 'fill';
       return 'contain';
     });
+  };
+
+  const toggleMute = () => {
+    if (videoRef.current) {
+      const nextMuted = !videoRef.current.muted;
+      videoRef.current.muted = nextMuted;
+      setIsMuted(nextMuted);
+      userExplicitlyMutedRef.current = nextMuted;
+    } else {
+      setIsMuted((prev) => {
+        userExplicitlyMutedRef.current = !prev;
+        return !prev;
+      });
+    }
   };
 
   // Reset & Unpair device from local player
@@ -436,11 +458,19 @@ export default function PlayerPage() {
 
       const attemptPlay = async () => {
         try {
-          vid.muted = false;
-          await vid.play();
+          if (!userExplicitlyMutedRef.current) {
+            vid.muted = false;
+            setIsMuted(false);
+            await vid.play();
+          } else {
+            vid.muted = true;
+            setIsMuted(true);
+            await vid.play();
+          }
         } catch {
           try {
             vid.muted = true;
+            setIsMuted(true);
             await vid.play();
           } catch {
             // Autoplay blocked completely
@@ -680,6 +710,29 @@ export default function PlayerPage() {
         >
           <Expand className="w-3.5 h-3.5 text-amber-400" />
           <span className="capitalize">{fitMode === 'contain' ? 'Fit (Proporsional)' : fitMode === 'cover' ? 'Penuhi Layar (Cover)' : 'Stretch (Fill)'}</span>
+        </button>
+
+        {/* Audio Sound Mute/Unmute Toggle Button */}
+        <button
+          onClick={toggleMute}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
+            isMuted
+              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30'
+              : 'bg-white/10 text-white hover:bg-white/20'
+          }`}
+          title={isMuted ? 'Nyalakan Suara (Unmute)' : 'Matikan Suara (Mute)'}
+        >
+          {isMuted ? (
+            <>
+              <VolumeX className="w-3.5 h-3.5 text-amber-400" />
+              <span>Suara: Off</span>
+            </>
+          ) : (
+            <>
+              <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Suara: On</span>
+            </>
+          )}
         </button>
       </div>
 
