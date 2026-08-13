@@ -347,6 +347,13 @@ export default function PlayerPage() {
       return;
     }
 
+    // Sort schedules: Prioritize 'promosi' mode over 'normal' mode, then by priority
+    schedules.sort((a, b) => {
+      if (a.mode === 'promosi' && b.mode !== 'promosi') return -1;
+      if (a.mode !== 'promosi' && b.mode === 'promosi') return 1;
+      return (b.priority || 0) - (a.priority || 0);
+    });
+
     const activeSchedule = schedules[0];
 
     if (activeSchedule.id === activeScheduleIdRef.current && playlist.length > 0) {
