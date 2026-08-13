@@ -118,66 +118,78 @@ export default function DashboardPage() {
     {
       label: 'Layar TV',
       value: stats.onlineScreens,
-      suffix: `/ ${stats.totalScreens}`,
+      totalText: `/ ${stats.totalScreens} Unit`,
+      badge: `${screenOnlinePercentage}% Online`,
+      badgeStyle: 'text-blue-700 bg-blue-50/80 border-blue-200/60',
       icon: MonitorPlay,
-      color: 'text-cyan-600',
-      bgColor: 'bg-cyan-50',
-      borderColor: 'border-cyan-200/60',
-      barColor: 'bg-cyan-500',
+      topAccent: 'bg-gradient-to-r from-blue-600 to-cyan-500',
+      iconBoxStyle: 'bg-blue-50/80 border-blue-100 text-blue-600 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600',
+      progressColor: 'bg-blue-600',
+      href: '/screens',
+      progress: screenOnlinePercentage,
     },
     {
       label: 'Total Media',
       value: stats.totalMedia,
-      suffix: 'File',
+      totalText: 'File Media',
+      badge: formatStorageUsed(stats.totalStorageUsed),
+      badgeStyle: 'text-emerald-700 bg-emerald-50/80 border-emerald-200/60',
       icon: ImageIcon,
-      color: 'text-emerald-600',
-      bgColor: 'bg-emerald-50',
-      borderColor: 'border-emerald-200/60',
-      barColor: 'bg-emerald-500',
+      topAccent: 'bg-gradient-to-r from-emerald-600 to-teal-500',
+      iconBoxStyle: 'bg-emerald-50/80 border-emerald-100 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white group-hover:border-emerald-600',
+      progressColor: 'bg-emerald-600',
+      href: '/media',
+      progress: Math.min(100, (stats.totalMedia / 50) * 100),
     },
     {
       label: 'Playlist Aktif',
       value: stats.activePlaylists,
-      suffix: `/ ${stats.totalPlaylists}`,
+      totalText: `/ ${stats.totalPlaylists} Playlist`,
+      badge: stats.activePlaylists > 0 ? 'Sedang Diputar' : 'Nonaktif',
+      badgeStyle: stats.activePlaylists > 0 ? 'text-violet-700 bg-violet-50/80 border-violet-200/60' : 'text-slate-600 bg-slate-100/80 border-slate-200/60',
       icon: ListMusic,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50',
-      borderColor: 'border-purple-200/60',
-      barColor: 'bg-purple-500',
+      topAccent: 'bg-gradient-to-r from-violet-600 to-indigo-500',
+      iconBoxStyle: 'bg-violet-50/80 border-violet-100 text-violet-600 group-hover:bg-violet-600 group-hover:text-white group-hover:border-violet-600',
+      progressColor: 'bg-violet-600',
+      href: '/playlist',
+      progress: stats.totalPlaylists > 0 ? Math.round((stats.activePlaylists / stats.totalPlaylists) * 100) : 0,
     },
     {
       label: 'Jadwal Hari Ini',
       value: stats.todaySchedules,
-      suffix: 'Aktif',
+      totalText: 'Program Aktif',
+      badge: 'Penyiaran Otomatis',
+      badgeStyle: 'text-amber-700 bg-amber-50/80 border-amber-200/60',
       icon: CalendarClock,
-      color: 'text-amber-600',
-      bgColor: 'bg-amber-50',
-      borderColor: 'border-amber-200/60',
-      barColor: 'bg-amber-500',
+      topAccent: 'bg-gradient-to-r from-amber-600 to-orange-500',
+      iconBoxStyle: 'bg-amber-50/80 border-amber-100 text-amber-600 group-hover:bg-amber-600 group-hover:text-white group-hover:border-amber-600',
+      progressColor: 'bg-amber-600',
+      href: '/schedule',
+      progress: stats.todaySchedules > 0 ? 100 : 0,
     },
   ];
 
   return (
-    <div className="pb-10 space-y-6">
+    <div className="pb-8 space-y-4">
       
       {/* ── Greeting Header ── */}
-      <header className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-slate-200/60">
-        <div className="space-y-1">
-          <p className="text-xs text-slate-400 font-medium flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse-dot" />
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-slate-200/60">
+        <div className="space-y-0.5">
+          <p className="text-[11px] text-slate-400 font-medium flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse-dot" />
             {currentDate}
           </p>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-xl font-bold tracking-tight text-slate-900">
             {getGreeting()}, <span className="text-slate-600 capitalize">{userName}</span>
           </h1>
-          <p className="text-sm text-slate-500 font-normal max-w-lg">
+          <p className="text-xs text-slate-500 font-normal">
             Pantau status perangkat, kelola media penyiaran, dan jalankan jadwal tayang.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           <Link href="/media/upload">
-            <button className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 shadow-lg shadow-slate-900/10 transition-all duration-200 hover:shadow-xl hover:shadow-slate-900/15 active:scale-[0.97]">
+            <button className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-sm transition-all duration-200 active:scale-[0.97]">
               <Upload className="w-3.5 h-3.5" />
               Upload Media
             </button>
@@ -185,33 +197,58 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* ── Stats Cards ── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
+      {/* ── Refined Multi-Color Corporate Stats Grid ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 stagger-children">
         {statCards.map((card) => {
           const Icon = card.icon;
           return (
-            <div
+            <Link
               key={card.label}
-              className="stat-card group bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden"
+              href={card.href}
+              className="stat-card group bg-white rounded-xl p-3.5 border border-slate-200/80 shadow-2xs hover:shadow-md hover:border-slate-300 transition-all duration-200 relative overflow-hidden flex flex-col justify-between"
             >
-              {/* Top accent bar */}
-              <div className={`absolute top-0 left-0 right-0 h-[3px] ${card.barColor} opacity-80 rounded-t-2xl`} />
-              
-              <div className="flex items-start justify-between mb-3">
-                <div className={`w-10 h-10 rounded-xl ${card.bgColor} flex items-center justify-center ${card.color} transition-transform duration-300 group-hover:scale-110`}>
-                  <Icon className="w-5 h-5" />
+              {/* Top Accent Line Gradient */}
+              <div className={`absolute top-0 left-0 right-0 h-[2.5px] ${card.topAccent}`} />
+
+              <div className="space-y-2">
+                {/* Top Row: Color Icon Box + Badge */}
+                <div className="flex items-center justify-between">
+                  <div className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-colors duration-200 ${card.iconBoxStyle}`}>
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${card.badgeStyle} flex items-center gap-1`}>
+                    {card.label === 'Layar TV' && (
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
+                    )}
+                    {card.badge}
+                  </span>
                 </div>
-                <TrendingUp className="w-3.5 h-3.5 text-slate-300" />
+
+                {/* Content: Label & Main Value */}
+                <div>
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{card.label}</p>
+                  <div className="flex items-baseline gap-1 mt-0.5">
+                    <span className="text-xl font-bold text-slate-900 tracking-tight">
+                      {card.value}
+                    </span>
+                    <span className="text-xs font-medium text-slate-400">
+                      {card.totalText}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{card.label}</p>
-                <p className="text-2xl font-bold text-slate-900 tracking-tight">
-                  {card.value}
-                  <span className="text-xs font-medium text-slate-400 ml-1.5">{card.suffix}</span>
-                </p>
+              {/* Bottom Row: Accent Mini Progress Bar */}
+              <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between">
+                <div className="w-full bg-slate-100 h-1 rounded-full overflow-hidden mr-2">
+                  <div
+                    className={`h-full rounded-full ${card.progressColor} transition-all duration-300`}
+                    style={{ width: `${Math.max(8, card.progress)}%` }}
+                  />
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-slate-600 group-hover:translate-x-0.5 transition-all flex-shrink-0" />
               </div>
-            </div>
+            </Link>
           );
         })}
       </div>
@@ -288,10 +325,10 @@ export default function DashboardPage() {
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               <div className={`relative w-2.5 h-2.5 rounded-full ${
-                                screen.status === 'online' ? 'bg-emerald-500' : 'bg-slate-300'
+                                screen.status === 'online' ? 'bg-blue-600' : 'bg-slate-300'
                               }`}>
                                 {screen.status === 'online' && (
-                                  <span className="absolute inset-0 rounded-full bg-emerald-500 animate-ping opacity-30" />
+                                  <span className="absolute inset-0 rounded-full bg-blue-600 animate-ping opacity-30" />
                                 )}
                               </div>
                               <div>
@@ -312,8 +349,8 @@ export default function DashboardPage() {
                           </td>
                           <td className="px-6 py-4">
                             {screen.status === 'online' ? (
-                              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/60">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200/60">
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-600" />
                                 Online
                               </span>
                             ) : (
@@ -339,23 +376,23 @@ export default function DashboardPage() {
 
         </div>
 
-        {/* ── RIGHT: Performance, Storage & Shortcuts ── */}
+        {/* ── RIGHT: Performance & Storage ── */}
         <div className="lg:col-span-4 space-y-5">
 
           {/* Device Performance Meter */}
           <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
-                  <BarChart3 className="w-3.5 h-3.5 text-emerald-600" />
+                <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
+                  <BarChart3 className="w-3.5 h-3.5 text-blue-600" />
                 </div>
                 Performa Layar
               </h3>
               <span className={`text-xs font-bold px-2.5 py-1 rounded-lg border ${
                 screenOnlinePercentage >= 80
-                  ? 'text-emerald-600 bg-emerald-50 border-emerald-100'
+                  ? 'text-blue-700 bg-blue-50 border-blue-100'
                   : screenOnlinePercentage >= 50
-                    ? 'text-amber-600 bg-amber-50 border-amber-100'
+                    ? 'text-slate-700 bg-slate-100 border-slate-200'
                     : 'text-red-600 bg-red-50 border-red-100'
               }`}>
                 {screenOnlinePercentage}%
@@ -369,18 +406,18 @@ export default function DashboardPage() {
               </div>
               <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-1000 ease-out"
+                  className="h-full rounded-full bg-gradient-to-r from-blue-600 to-indigo-700 transition-all duration-1000 ease-out"
                   style={{ width: `${screenOnlinePercentage}%` }}
                 />
               </div>
             </div>
 
             <div className="pt-3 border-t border-slate-100 grid grid-cols-2 gap-3">
-              <div className="flex items-center gap-2 text-xs text-slate-600 bg-emerald-50/50 rounded-xl px-3 py-2.5 border border-emerald-100/60">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 flex-shrink-0" />
+              <div className="flex items-center gap-2 text-xs text-slate-600 bg-blue-50/50 rounded-xl px-3 py-2.5 border border-blue-100/60">
+                <CheckCircle2 className="w-4 h-4 text-blue-600 flex-shrink-0" />
                 <div>
-                  <p className="font-bold text-emerald-700">{stats.onlineScreens}</p>
-                  <p className="text-[10px] text-emerald-600">Terhubung</p>
+                  <p className="font-bold text-blue-900">{stats.onlineScreens}</p>
+                  <p className="text-[10px] text-blue-700">Terhubung</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 rounded-xl px-3 py-2.5 border border-slate-200/60">
@@ -397,8 +434,8 @@ export default function DashboardPage() {
           <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold text-slate-900 tracking-tight flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center">
-                  <HardDrive className="w-3.5 h-3.5 text-blue-600" />
+                <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
+                  <HardDrive className="w-3.5 h-3.5 text-slate-700" />
                 </div>
                 Penyimpanan Media
               </h3>
@@ -407,10 +444,10 @@ export default function DashboardPage() {
               </span>
             </div>
 
-            <div className="bg-gradient-to-br from-slate-50 to-blue-50/40 p-4 rounded-xl border border-slate-200/60">
+            <div className="bg-gradient-to-br from-slate-50 to-slate-100/70 p-4 rounded-xl border border-slate-200/60">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-white border border-slate-200/60 flex items-center justify-center shadow-sm">
-                  <Zap className="w-4 h-4 text-blue-600" />
+                <div className="w-10 h-10 rounded-xl bg-white border border-slate-200/60 flex items-center justify-center shadow-xs">
+                  <Zap className="w-4 h-4 text-slate-700" />
                 </div>
                 <div>
                   <p className="text-xs font-bold text-slate-800">{stats.totalMedia} File Media</p>
@@ -420,68 +457,6 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Quick Actions */}
-          <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm space-y-3">
-            <h3 className="text-xs font-bold text-slate-900 tracking-tight flex items-center gap-2.5 mb-3">
-              <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center">
-                <Zap className="w-3.5 h-3.5 text-slate-600" />
-              </div>
-              Akses Cepat
-            </h3>
-
-            <Link href="/media/upload" className="quick-action-link flex items-center justify-between p-3.5 rounded-xl border border-slate-200/60 hover:bg-blue-50/50 hover:border-blue-200/60 transition-all duration-200 group">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-100 transition-colors">
-                  <Upload className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-900 group-hover:text-blue-700 transition-colors">Unggah Media</p>
-                  <p className="text-[10px] text-slate-400 font-normal">Tambah video/gambar baru</p>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all duration-200" />
-            </Link>
-
-            <Link href="/playlist" className="quick-action-link flex items-center justify-between p-3.5 rounded-xl border border-slate-200/60 hover:bg-purple-50/50 hover:border-purple-200/60 transition-all duration-200 group">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center flex-shrink-0 group-hover:bg-purple-100 transition-colors">
-                  <ListMusic className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-900 group-hover:text-purple-700 transition-colors">Kelola Playlist</p>
-                  <p className="text-[10px] text-slate-400 font-normal">Atur urutan tayang slide</p>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-purple-500 group-hover:translate-x-1 transition-all duration-200" />
-            </Link>
-
-            <Link href="/schedule" className="quick-action-link flex items-center justify-between p-3.5 rounded-xl border border-slate-200/60 hover:bg-amber-50/50 hover:border-amber-200/60 transition-all duration-200 group">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center flex-shrink-0 group-hover:bg-amber-100 transition-colors">
-                  <CalendarClock className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-900 group-hover:text-amber-700 transition-colors">Jadwal Penyiaran</p>
-                  <p className="text-[10px] text-slate-400 font-normal">Set waktu tayang otomatis</p>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-amber-500 group-hover:translate-x-1 transition-all duration-200" />
-            </Link>
-
-            <Link href="/screens" className="quick-action-link flex items-center justify-between p-3.5 rounded-xl border border-slate-200/60 hover:bg-cyan-50/50 hover:border-cyan-200/60 transition-all duration-200 group">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center flex-shrink-0 group-hover:bg-cyan-100 transition-colors">
-                  <MonitorPlay className="w-4 h-4" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-slate-900 group-hover:text-cyan-700 transition-colors">Kelola Layar</p>
-                  <p className="text-[10px] text-slate-400 font-normal">Atur perangkat TV terhubung</p>
-                </div>
-              </div>
-              <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-cyan-500 group-hover:translate-x-1 transition-all duration-200" />
-            </Link>
           </div>
 
         </div>
