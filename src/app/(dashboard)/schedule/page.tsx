@@ -37,7 +37,6 @@ import {
   Repeat,
   Sunrise,
   Sun,
-  Sunset,
   Moon,
   Check,
   X,
@@ -64,20 +63,18 @@ export default function SchedulePage() {
   const [editStartDate, setEditStartDate] = useState('');
   const [editEndDate, setEditEndDate] = useState('');
 
-  // Editable Presets State in Edit Modal
+  // Editable Presets State in Edit Modal (Pagi, Siang, Malam)
   const [editPresetTimes, setEditPresetTimes] = useState<{
     pagi: string;
     siang: string;
-    sore: string;
     malam: string;
   }>({
     pagi: '08:00',
     siang: '12:00',
-    sore: '15:00',
     malam: '19:00',
   });
 
-  const [editStartTimes, setEditStartTimes] = useState<string[]>(['08:00']);
+  const [editStartTimes, setEditStartTimes] = useState<string[]>(['08:00', '12:00', '19:00']);
   const [editCustomTime, setEditCustomTime] = useState('10:00');
   const [editStatus, setEditStatus] = useState<'draft' | 'active' | 'cancelled'>('draft');
   const [editSelectedScreens, setEditSelectedScreens] = useState<string[]>([]);
@@ -151,7 +148,7 @@ export default function SchedulePage() {
     setEditSelectedScreens(assignedScreenIds);
   };
 
-  const handleEditPresetTimeChange = (key: 'pagi' | 'siang' | 'sore' | 'malam', newTime: string) => {
+  const handleEditPresetTimeChange = (key: 'pagi' | 'siang' | 'malam', newTime: string) => {
     const oldTime = editPresetTimes[key];
     setEditPresetTimes((prev) => ({ ...prev, [key]: newTime }));
 
@@ -304,10 +301,9 @@ export default function SchedulePage() {
   }
 
   const editPresetList = [
-    { key: 'pagi' as const, label: 'Pagi', time: editPresetTimes.pagi, icon: Sunrise },
-    { key: 'siang' as const, label: 'Siang', time: editPresetTimes.siang, icon: Sun },
-    { key: 'sore' as const, label: 'Sore', time: editPresetTimes.sore, icon: Sunset },
-    { key: 'malam' as const, label: 'Malam', time: editPresetTimes.malam, icon: Moon },
+    { key: 'pagi' as const, label: 'Sesi Pagi', time: editPresetTimes.pagi, icon: Sunrise },
+    { key: 'siang' as const, label: 'Sesi Siang', time: editPresetTimes.siang, icon: Sun },
+    { key: 'malam' as const, label: 'Sesi Malam', time: editPresetTimes.malam, icon: Moon },
   ];
 
   return (
@@ -322,7 +318,7 @@ export default function SchedulePage() {
             </span>
           </h1>
           <p className="text-xs text-slate-500 font-normal mt-1">
-            Atur periode tanggal tayang, multi jam tayang harian (Pagi, Siang, Sore, Malam), dan penugasan layar.
+            Atur periode tanggal tayang, multi jam tayang harian (Pagi, Siang, Malam), dan penugasan layar.
           </p>
         </div>
 
@@ -589,13 +585,13 @@ export default function SchedulePage() {
                 </div>
               </div>
 
-              {/* Multi Jam Tayang Section in Edit Modal */}
+              {/* Boutique 3-Column Presets in Edit Modal */}
               <div className="space-y-3 pt-2 border-t border-slate-100">
                 <Label className="text-xs font-bold text-slate-800 flex items-center gap-1">
                   <Clock className="w-3.5 h-3.5 text-blue-600" /> Multi Jam Tayang Harian
                 </Label>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {editPresetList.map((p) => {
                     const Icon = p.icon;
                     const isSel = editStartTimes.includes(p.time);
@@ -603,23 +599,23 @@ export default function SchedulePage() {
                       <div
                         key={p.key}
                         onClick={() => toggleEditPresetTime(p.time)}
-                        className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-2 ${
-                          isSel ? 'bg-blue-50/80 border-blue-400' : 'bg-slate-50 border-slate-200/80'
+                        className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-2.5 ${
+                          isSel ? 'bg-blue-50/80 border-blue-300/80' : 'bg-slate-50/50 border-slate-200/80'
                         }`}
                       >
-                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-800">
-                          <span className="flex items-center gap-1">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                          <span className="flex items-center gap-1.5">
                             <Icon className={`w-3.5 h-3.5 ${isSel ? 'text-blue-600' : 'text-slate-400'}`} />
                             {p.label}
                           </span>
-                          <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border ${
+                          <div className={`w-4 h-4 rounded-md flex items-center justify-center border ${
                             isSel ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 bg-white'
                           }`}>
-                            {isSel && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                            {isSel && <Check className="w-3 h-3 stroke-[3]" />}
                           </div>
                         </div>
 
-                        <div onClick={(e) => e.stopPropagation()} className="bg-white px-2 py-1 rounded-lg border border-slate-200 shadow-2xs">
+                        <div onClick={(e) => e.stopPropagation()} className="bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
                           <input
                             type="time"
                             value={p.time}
@@ -632,7 +628,7 @@ export default function SchedulePage() {
                   })}
                 </div>
 
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+                <div className="p-3.5 rounded-xl bg-slate-50/60 border border-slate-200/80 space-y-2">
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                     Slot Aktif ({editStartTimes.length} Slot)
                   </span>

@@ -12,7 +12,6 @@ import {
   Loader2,
   ChevronDown,
   Sun,
-  Sunset,
   Moon,
   Sunrise,
   Plus,
@@ -40,21 +39,19 @@ export default function CreateSchedulePage() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
-  // Editable Presets State
+  // Editable Presets State (Pagi, Siang, Malam)
   const [presetTimes, setPresetTimes] = useState<{
     pagi: string;
     siang: string;
-    sore: string;
     malam: string;
   }>({
     pagi: '08:00',
     siang: '12:00',
-    sore: '15:00',
     malam: '19:00',
   });
 
   // Active Multi Jam Tayang Slots
-  const [startTimes, setStartTimes] = useState<string[]>(['08:00', '12:00', '15:00', '19:00']);
+  const [startTimes, setStartTimes] = useState<string[]>(['08:00', '12:00', '19:00']);
   const [customTime, setCustomTime] = useState('10:00');
 
   const [selectedScreens, setSelectedScreens] = useState<string[]>([]);
@@ -95,7 +92,7 @@ export default function CreateSchedulePage() {
   };
 
   // Handle Preset Time Edit
-  const handlePresetTimeChange = (key: 'pagi' | 'siang' | 'sore' | 'malam', newTime: string) => {
+  const handlePresetTimeChange = (key: 'pagi' | 'siang' | 'malam', newTime: string) => {
     const oldTime = presetTimes[key];
     setPresetTimes((prev) => ({ ...prev, [key]: newTime }));
 
@@ -246,7 +243,6 @@ export default function CreateSchedulePage() {
   const presetList = [
     { key: 'pagi' as const, label: 'Sesi Pagi', time: presetTimes.pagi, icon: Sunrise },
     { key: 'siang' as const, label: 'Sesi Siang', time: presetTimes.siang, icon: Sun },
-    { key: 'sore' as const, label: 'Sesi Sore', time: presetTimes.sore, icon: Sunset },
     { key: 'malam' as const, label: 'Sesi Malam', time: presetTimes.malam, icon: Moon },
   ];
 
@@ -288,7 +284,7 @@ export default function CreateSchedulePage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* SECTION 1: Informasi Dasar */}
+        {/* SECTION 1: Informasi & Playlist */}
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-6 space-y-5">
           <div className="flex items-center gap-2.5 border-b border-slate-100 pb-4">
             <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
@@ -309,7 +305,7 @@ export default function CreateSchedulePage() {
                 placeholder="Contoh: Promo Spesial Hari Kesehatan / Edukasi Pasien Pagi"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="h-10 text-xs bg-slate-50 border-slate-200 rounded-xl focus:bg-white"
+                className="h-10 text-xs bg-slate-50/60 border-slate-200 rounded-xl focus:bg-white"
                 required
               />
             </div>
@@ -322,7 +318,7 @@ export default function CreateSchedulePage() {
                 <select
                   value={playlistId}
                   onChange={(e) => setPlaylistId(e.target.value)}
-                  className="w-full h-10 px-3 pr-8 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-blue-500 focus:outline-none transition-all appearance-none"
+                  className="w-full h-10 px-3 pr-8 text-xs font-semibold text-slate-800 bg-slate-50/60 border border-slate-200 rounded-xl focus:bg-white focus:border-blue-500 focus:outline-none transition-all appearance-none"
                   required
                 >
                   <option value="" disabled>Pilih Playlist...</option>
@@ -342,7 +338,7 @@ export default function CreateSchedulePage() {
                 <select
                   value={mode}
                   onChange={(e) => setMode(e.target.value as any)}
-                  className="w-full h-10 px-3 pr-8 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:border-blue-500 focus:outline-none transition-all appearance-none"
+                  className="w-full h-10 px-3 pr-8 text-xs font-semibold text-slate-800 bg-slate-50/60 border border-slate-200 rounded-xl focus:bg-white focus:border-blue-500 focus:outline-none transition-all appearance-none"
                 >
                   <option value="normal">Normal / Pelayanan (Reguler)</option>
                   <option value="promosi">Promosi Spesial (Takeover Layar)</option>
@@ -361,7 +357,7 @@ export default function CreateSchedulePage() {
             </div>
             <div>
               <h2 className="text-sm font-bold text-slate-900">Periode Tanggal & Multi Jam Tayang Harian</h2>
-              <p className="text-xs text-slate-500 font-normal">Tentukan tanggal tayang dan setel jam tayang sesi harian (Pagi, Siang, Sore, Malam).</p>
+              <p className="text-xs text-slate-500 font-normal">Tentukan tanggal tayang dan setel jam tayang sesi harian (Pagi, Siang, Malam).</p>
             </div>
           </div>
 
@@ -372,7 +368,7 @@ export default function CreateSchedulePage() {
                 type="date"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
-                className="h-10 text-xs bg-slate-50 border-slate-200 rounded-xl"
+                className="h-10 text-xs bg-slate-50/60 border-slate-200 rounded-xl"
                 required
               />
             </div>
@@ -382,13 +378,13 @@ export default function CreateSchedulePage() {
                 type="date"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
-                className="h-10 text-xs bg-slate-50 border-slate-200 rounded-xl"
+                className="h-10 text-xs bg-slate-50/60 border-slate-200 rounded-xl"
                 required
               />
             </div>
           </div>
 
-          {/* Clean Modern Multi Jam Tayang Section */}
+          {/* Boutique Multi Jam Tayang Section (3 Presets: Pagi, Siang, Malam) */}
           <div className="space-y-4 pt-2 border-t border-slate-100">
             <div className="flex items-center justify-between">
               <div>
@@ -397,13 +393,13 @@ export default function CreateSchedulePage() {
                   Multi Jam Tayang Harian
                 </Label>
                 <p className="text-[11px] text-slate-400 font-normal mt-0.5">
-                  Pilih preset tayang atau ubah jam sesuai jadwal operasional unit.
+                  Pilih sesi tayang atau sesuaikan jam tayang harian sesuai jam operasional unit.
                 </p>
               </div>
             </div>
 
-            {/* Presets Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {/* 3-Column Clean Presets Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
               {presetList.map((preset) => {
                 const Icon = preset.icon;
                 const isSelected = startTimes.includes(preset.time);
@@ -411,14 +407,14 @@ export default function CreateSchedulePage() {
                   <div
                     key={preset.key}
                     onClick={() => togglePresetTime(preset.time)}
-                    className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
+                    className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-3 ${
                       isSelected
-                        ? 'bg-blue-50/80 border-blue-400 shadow-2xs'
-                        : 'bg-slate-50/70 border-slate-200/80 hover:bg-slate-100/60'
+                        ? 'bg-blue-50/70 border-blue-300/80 shadow-2xs'
+                        : 'bg-slate-50/50 border-slate-200/80 hover:bg-slate-50'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                      <span className="flex items-center gap-2 text-xs font-bold text-slate-800">
                         <Icon className={`w-4 h-4 ${isSelected ? 'text-blue-600' : 'text-slate-400'}`} />
                         {preset.label}
                       </span>
@@ -431,7 +427,7 @@ export default function CreateSchedulePage() {
 
                     <div
                       onClick={(e) => e.stopPropagation()}
-                      className="flex items-center gap-2 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 shadow-2xs"
+                      className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-lg border border-slate-200/80 shadow-2xs"
                     >
                       <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       <input
@@ -446,50 +442,50 @@ export default function CreateSchedulePage() {
               })}
             </div>
 
-            {/* Selected Active Slots */}
-            <div className="p-4 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider">
-                  Slot Jam Tayang Aktif ({startTimes.length} Slot)
-                </span>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {startTimes.map((timeVal) => (
-                  <span
-                    key={timeVal}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-900 text-xs font-mono font-bold shadow-2xs"
-                  >
-                    <Clock className="w-3.5 h-3.5 text-blue-600" />
-                    {timeVal} WIB
-                    <button
-                      type="button"
-                      onClick={() => removeTimeSlot(timeVal)}
-                      className="hover:text-red-600 transition-colors ml-1"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+            {/* Active Time Slots Clean Bar */}
+            <div className="pt-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-slate-50/60 border border-slate-200/80">
+                <div className="space-y-1.5 flex-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                    Slot Jam Tayang Aktif ({startTimes.length} Slot)
                   </span>
-                ))}
-              </div>
+                  <div className="flex flex-wrap gap-2">
+                    {startTimes.map((timeVal) => (
+                      <span
+                        key={timeVal}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white border border-slate-200 text-slate-900 text-xs font-mono font-bold shadow-2xs"
+                      >
+                        <Clock className="w-3 h-3 text-blue-600" />
+                        {timeVal} WIB
+                        <button
+                          type="button"
+                          onClick={() => removeTimeSlot(timeVal)}
+                          className="hover:text-red-600 transition-colors ml-1"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                </div>
 
-              {/* Add Custom Time Input */}
-              <div className="flex items-center gap-2 pt-2 border-t border-slate-200/60">
-                <span className="text-xs font-semibold text-slate-600">Tambah Jam Kustom:</span>
-                <input
-                  type="time"
-                  value={customTime}
-                  onChange={(e) => setCustomTime(e.target.value)}
-                  className="h-8 px-2.5 text-xs font-mono font-bold bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 shadow-2xs"
-                />
-                <button
-                  type="button"
-                  onClick={addCustomTimeSlot}
-                  className="h-8 px-3 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-colors flex items-center gap-1.5 shadow-2xs"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Tambah Slot
-                </button>
+                {/* Inline Custom Time Input */}
+                <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0 sm:border-l border-slate-200/80 sm:pl-4">
+                  <input
+                    type="time"
+                    value={customTime}
+                    onChange={(e) => setCustomTime(e.target.value)}
+                    className="h-8 px-2.5 text-xs font-mono font-bold bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 shadow-2xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={addCustomTimeSlot}
+                    className="h-8 px-3 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-all flex items-center gap-1 shadow-2xs"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Tambah Slot
+                  </button>
+                </div>
               </div>
             </div>
           </div>
