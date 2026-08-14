@@ -39,7 +39,8 @@ import {
   Sun,
   Sunset,
   Moon,
-  Edit2,
+  Check,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Schedule, Playlist, Screen } from '@/lib/types';
@@ -77,6 +78,7 @@ export default function SchedulePage() {
   });
 
   const [editStartTimes, setEditStartTimes] = useState<string[]>(['08:00']);
+  const [editCustomTime, setEditCustomTime] = useState('10:00');
   const [editStatus, setEditStatus] = useState<'draft' | 'active' | 'cancelled'>('draft');
   const [editSelectedScreens, setEditSelectedScreens] = useState<string[]>([]);
   const [savingEdit, setSavingEdit] = useState(false);
@@ -171,6 +173,23 @@ export default function SchedulePage() {
     }
   };
 
+  const addEditCustomTimeSlot = () => {
+    if (!editCustomTime) return;
+    if (editStartTimes.includes(editCustomTime)) {
+      toast.error('Jam tayang ini sudah ada dalam daftar');
+      return;
+    }
+    setEditStartTimes([...editStartTimes, editCustomTime].sort());
+  };
+
+  const removeEditTimeSlot = (timeVal: string) => {
+    if (editStartTimes.length === 1) {
+      toast.error('Jadwal harus memiliki minimal 1 jam tayang');
+      return;
+    }
+    setEditStartTimes(editStartTimes.filter((t) => t !== timeVal));
+  };
+
   const handleSaveEdit = async () => {
     if (!editingSchedule || !editName.trim() || !editPlaylistId || editStartTimes.length === 0) {
       toast.error('Lengkapi formulir edit jadwal');
@@ -189,7 +208,6 @@ export default function SchedulePage() {
     const selectedPl = playlists.find((p) => p.id === editPlaylistId);
     const selectedLoopCount = selectedPl?.loop_count ?? 3;
 
-    // 1. Update schedule
     const { error: schedErr } = await supabase
       .from('schedules')
       .update({
@@ -212,7 +230,6 @@ export default function SchedulePage() {
       return;
     }
 
-    // 2. Re-assign screens
     await supabase.from('schedule_screens').delete().eq('schedule_id', editingSchedule.id);
 
     const screenAssignments = editSelectedScreens.map((sid) => ({
@@ -363,7 +380,6 @@ export default function SchedulePage() {
                   ? schedule.start_times
                   : [schedule.start_time || '08:00'];
                 
-                // Read loop count from playlist or schedule
                 const loops = (schedule as any).playlist?.loop_count ?? schedule.loop_count ?? 3;
 
                 return (
@@ -408,7 +424,6 @@ export default function SchedulePage() {
                         </div>
                       </div>
 
-                      {/* Status Toggle & Actions */}
                       <div className="flex items-center gap-2 shrink-0">
                         {schedule.status === 'draft' && (
                           <button
@@ -446,7 +461,6 @@ export default function SchedulePage() {
                       </div>
                     </div>
 
-                    {/* Schedule Metadata Pills */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-slate-600">
                       <div className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
                         <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
@@ -536,7 +550,7 @@ export default function SchedulePage() {
                   >
                     {playlists.map((pl) => (
                       <option key={pl.id} value={pl.id}>
-                        {pl.name} (Looping: {pl.loop_count === 0 ? 'Kontinu' : `${pl.loop_count ?? 3}x`})
+                        {pl.name} (Perulangan: {pl.loop_count === 0 ? 'Kontinu' : `${pl.loop_count ?? 3}x`})
                       </option>
                     ))}
                   </select>
@@ -575,43 +589,81 @@ export default function SchedulePage() {
                 </div>
               </div>
 
-              {/* Editable Multi Jam Tayang Presets in Edit Modal */}
-              <div className="space-y-2 pt-2 border-t border-slate-100">
+              {/* Multi Jam Tayang Section in Edit Modal */}
+              <div className="space-y-3 pt-2 border-t border-slate-100">
                 <Label className="text-xs font-bold text-slate-800 flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-blue-600" /> Multi Jam Tayang Harian (Preset Editable)
+                  <Clock className="w-3.5 h-3.5 text-blue-600" /> Multi Jam Tayang Harian
                 </Label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   {editPresetList.map((p) => {
+                    const Icon = p.icon;
                     const isSel = editStartTimes.includes(p.time);
                     return (
                       <div
                         key={p.key}
-                        className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex flex-col justify-between space-y-1.5 ${
-                          isSel ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-50 text-slate-700 border-slate-200'
+                        onClick={() => toggleEditPresetTime(p.time)}
+                        className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-2 ${
+                          isSel ? 'bg-blue-50/80 border-blue-400' : 'bg-slate-50 border-slate-200/80'
                         }`}
                       >
-                        <button
-                          type="button"
-                          onClick={() => toggleEditPresetTime(p.time)}
-                          className="flex items-center justify-between w-full text-[11px]"
-                        >
-                          <span>{p.label}</span>
-                          {isSel && <CheckCircle2 className="w-3 h-3 text-white" />}
-                        </button>
-                        <div className="flex items-center gap-1 bg-white/20 p-1 rounded-lg">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-800">
+                          <span className="flex items-center gap-1">
+                            <Icon className={`w-3.5 h-3.5 ${isSel ? 'text-blue-600' : 'text-slate-400'}`} />
+                            {p.label}
+                          </span>
+                          <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border ${
+                            isSel ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 bg-white'
+                          }`}>
+                            {isSel && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                          </div>
+                        </div>
+
+                        <div onClick={(e) => e.stopPropagation()} className="bg-white px-2 py-1 rounded-lg border border-slate-200 shadow-2xs">
                           <input
                             type="time"
                             value={p.time}
                             onChange={(e) => handleEditPresetTimeChange(p.key, e.target.value)}
-                            className={`w-full bg-transparent font-mono text-xs font-bold focus:outline-none ${
-                              isSel ? 'text-white' : 'text-slate-900'
-                            }`}
+                            className="w-full bg-transparent font-mono text-xs font-bold text-slate-900 focus:outline-none"
                           />
-                          <Edit2 className={`w-3 h-3 ${isSel ? 'text-white' : 'text-slate-400'}`} />
                         </div>
                       </div>
                     );
                   })}
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                    Slot Aktif ({editStartTimes.length} Slot)
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {editStartTimes.map((tVal) => (
+                      <span key={tVal} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 font-mono text-xs font-bold text-slate-900">
+                        {tVal} WIB
+                        <button type="button" onClick={() => removeEditTimeSlot(tVal)} className="hover:text-red-600 ml-0.5">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1.5 border-t border-slate-200/60">
+                    <span className="text-[11px] font-medium text-slate-600">Tambah Slot:</span>
+                    <input
+                      type="time"
+                      value={editCustomTime}
+                      onChange={(e) => setEditCustomTime(e.target.value)}
+                      className="h-7 px-2 text-xs font-mono font-bold bg-white border border-slate-200 rounded-lg focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={addEditCustomTimeSlot}
+                      className="h-7 px-2.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-colors flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Tambah
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
