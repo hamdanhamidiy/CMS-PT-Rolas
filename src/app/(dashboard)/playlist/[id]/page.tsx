@@ -274,14 +274,20 @@ export default function PlaylistEditorPage() {
       </div>
 
       {/* ── Looping Setting Card ── */}
-      <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Repeat className="w-4 h-4 text-purple-600" />
-            <h3 className="text-xs font-bold text-slate-900">Pengaturan Putaran Tayang (Looping Playlist)</h3>
+      <div className="p-4.5 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <Repeat className="w-4 h-4 text-purple-600" />
+              <h3 className="text-xs font-bold text-slate-900">Pengaturan Putaran Tayang Playlist (Total Sesi Tayang)</h3>
+            </div>
+            <p className="text-[11px] text-slate-500 font-normal mt-0.5">
+              Berapa kali SELURUH antrean playlist diulang dalam satu sesi jam tayang harian.
+            </p>
           </div>
-          <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
-            Total Sesi: {(playlist.loop_count ?? 3) === 0 ? 'Kontinu (Sepanjang Hari)' : formatDuration(totalLoopDuration * (playlist.loop_count ?? 3))}
+
+          <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-200 shrink-0 self-start sm:self-auto">
+            Total Durasi Sesi: {(playlist.loop_count ?? 3) === 0 ? 'Kontinu (Sepanjang Hari)' : formatDuration(totalLoopDuration * (playlist.loop_count ?? 3))}
           </span>
         </div>
 
@@ -318,18 +324,16 @@ export default function PlaylistEditorPage() {
         </div>
       </div>
 
-
-
       {/* ── Items Container ── */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-2xs overflow-hidden">
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div>
             <h3 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
               <Layers className="w-4 h-4 text-blue-600" />
-              Urutan & Durasi Media Playlist
+              Urutan & Perulangan Media Individual
             </h3>
             <p className="text-xs text-slate-500 font-normal mt-0.5">
-              {items.length} media tayang — atur detik tayang foto/video & perulangan per slide.
+              {items.length} media tayang — atur detik tayang foto/video & berapa kali media spesifik diputar berurutan.
             </p>
           </div>
           <button
