@@ -10,8 +10,6 @@ import {
   ArrowLeft,
   Save,
   Loader2,
-  MonitorPlay,
-  CalendarClock,
   ChevronDown,
   Sun,
   Sunset,
@@ -19,15 +17,14 @@ import {
   Sunrise,
   Plus,
   X,
-  RotateCcw,
   Sparkles,
   Clock,
-  Play,
   Repeat,
   CheckCircle2,
+  Edit2,
 } from 'lucide-react';
 import Link from 'next/link';
-import type { Playlist, Screen, PlaylistItem, Media } from '@/lib/types';
+import type { Playlist, Screen } from '@/lib/types';
 import { toast } from 'sonner';
 import { ensureUserProfile, logActivity, formatDuration } from '@/lib/utils';
 
@@ -45,15 +42,28 @@ export default function CreateSchedulePage() {
   const [priority, setPriority] = useState(1);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  
-  // Multi Jam Tayang & Looping State
+
+  // Editable Presets State
+  const [presetTimes, setPresetTimes] = useState<{
+    pagi: string;
+    siang: string;
+    sore: string;
+    malam: string;
+  }>({
+    pagi: '08:00',
+    siang: '12:00',
+    sore: '15:00',
+    malam: '19:00',
+  });
+
+  // Active Multi Jam Tayang Slots
   const [startTimes, setStartTimes] = useState<string[]>(['08:00', '12:00', '15:00', '19:00']);
   const [customTime, setCustomTime] = useState('10:00');
-  const [loopCount, setLoopCount] = useState<number>(3); // 3x putaran default
 
   const [selectedScreens, setSelectedScreens] = useState<string[]>([]);
-  
-  // Selected Playlist Duration Calculation
+
+  // Duration & Loop settings from selected playlist
+  const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null);
   const [playlistDuration, setPlaylistDuration] = useState<number>(0); // 1 loop in seconds
   const [playlistItemsCount, setPlaylistItemsCount] = useState<number>(0);
 
@@ -63,9 +73,11 @@ export default function CreateSchedulePage() {
 
   useEffect(() => {
     if (playlistId) {
+      const found = playlists.find((p) => p.id === playlistId) || null;
+      setSelectedPlaylist(found);
       calculatePlaylistDuration(playlistId);
     }
-  }, [playlistId]);
+  }, [playlistId, playlists]);
 
   const loadData = async () => {
     const supabase = createClient();
@@ -77,6 +89,7 @@ export default function CreateSchedulePage() {
     setPlaylists(plList);
     if (plList.length > 0) {
       setPlaylistId(plList[0].id);
+      setSelectedPlaylist(plList[0]);
     }
     setScreens(screenRes.data || []);
     setLoading(false);
@@ -111,13 +124,17 @@ export default function CreateSchedulePage() {
     }
   };
 
-  // Preset Time Slots
-  const presets = [
-    { label: 'Pagi', time: '08:00', icon: Sunrise, color: 'text-amber-600 bg-amber-50 border-amber-200' },
-    { label: 'Siang', time: '12:00', icon: Sun, color: 'text-orange-600 bg-orange-50 border-orange-200' },
-    { label: 'Sore', time: '15:00', icon: Sunset, color: 'text-purple-600 bg-purple-50 border-purple-200' },
-    { label: 'Malam', time: '19:00', icon: Moon, color: 'text-indigo-600 bg-indigo-50 border-indigo-200' },
-  ];
+  // Handle Preset Time Edit
+  const handlePresetTimeChange = (key: 'pagi' | 'siang' | 'sore' | 'malam', newTime: string) => {
+    const oldTime = presetTimes[key];
+    setPresetTimes((prev) => ({ ...prev, [key]: newTime }));
+
+    // If old preset time was active in startTimes, update it to newTime
+    if (startTimes.includes(oldTime)) {
+      const updated = startTimes.map((t) => (t === oldTime ? newTime : t)).sort();
+      setStartTimes(updated);
+    }
+  };
 
   const togglePresetTime = (timeVal: string) => {
     if (startTimes.includes(timeVal)) {
@@ -127,8 +144,7 @@ export default function CreateSchedulePage() {
       }
       setStartTimes(startTimes.filter((t) => t !== timeVal));
     } else {
-      const updated = [...startTimes, timeVal].sort();
-      setStartTimes(updated);
+      setStartTimes([...startTimes, timeVal].sort());
     }
   };
 
@@ -138,8 +154,7 @@ export default function CreateSchedulePage() {
       toast.error('Jam tayang ini sudah ada dalam daftar');
       return;
     }
-    const updated = [...startTimes, customTime].sort();
-    setStartTimes(updated);
+    setStartTimes([...startTimes, customTime].sort());
   };
 
   const removeTimeSlot = (timeVal: string) => {
@@ -164,9 +179,12 @@ export default function CreateSchedulePage() {
     }
   };
 
-  // Helper to calculate auto-end time for a given start time and duration
+  // Loop count from selected playlist
+  const playlistLoopCount = selectedPlaylist?.loop_count ?? 3;
+  const totalSessionSeconds = playlistLoopCount > 0 ? playlistDuration * playlistLoopCount : 0;
+
   const getAutoEndTime = (startTimeStr: string, sessionSec: number): string => {
-    if (sessionSec <= 0 || loopCount === 0) return 'Kontinu (Sepanjang Hari)';
+    if (sessionSec <= 0 || playlistLoopCount === 0) return 'Kontinu (Sepanjang Hari)';
     const [h, m] = startTimeStr.split(':').map(Number);
     const startTotalSec = h * 3600 + m * 60;
     const endTotalSec = startTotalSec + sessionSec;
@@ -175,8 +193,6 @@ export default function CreateSchedulePage() {
     const endM = Math.floor((endTotalSec % 3600) / 60);
     return `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')} WIB`;
   };
-
-  const totalSessionSeconds = loopCount > 0 ? playlistDuration * loopCount : 0;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -193,7 +209,7 @@ export default function CreateSchedulePage() {
     const createdBy = await ensureUserProfile(supabase, user);
 
     const firstStartTime = startTimes[0] || '08:00';
-    const autoCalculatedEndTime = loopCount > 0
+    const autoCalculatedEndTime = playlistLoopCount > 0
       ? getAutoEndTime(firstStartTime, totalSessionSeconds).replace(' WIB', '')
       : '23:59';
 
@@ -208,7 +224,7 @@ export default function CreateSchedulePage() {
         end_date: endDate,
         start_time: firstStartTime,
         end_time: autoCalculatedEndTime,
-        loop_count: loopCount,
+        loop_count: playlistLoopCount,
         start_times: startTimes,
         status: 'draft',
         created_by: createdBy,
@@ -228,7 +244,7 @@ export default function CreateSchedulePage() {
           end_date: endDate,
           start_time: firstStartTime,
           end_time: autoCalculatedEndTime,
-          loop_count: loopCount,
+          loop_count: playlistLoopCount,
           start_times: startTimes,
           status: 'draft',
           created_by: null,
@@ -275,21 +291,28 @@ export default function CreateSchedulePage() {
     );
   }
 
+  const presetList = [
+    { key: 'pagi' as const, label: 'Pagi', time: presetTimes.pagi, icon: Sunrise },
+    { key: 'siang' as const, label: 'Siang', time: presetTimes.siang, icon: Sun },
+    { key: 'sore' as const, label: 'Sore', time: presetTimes.sore, icon: Sunset },
+    { key: 'malam' as const, label: 'Malam', time: presetTimes.malam, icon: Moon },
+  ];
+
   return (
     <div className="pb-16 max-w-4xl mx-auto space-y-6">
-      {/* ── Top Header ── */}
+      {/* Top Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
             href="/schedule"
-            className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-50 transition-colors shadow-2xs"
+            className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-600 hover:text-slate-900 transition-colors shadow-2xs"
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
             <h1 className="text-xl font-bold tracking-tight text-slate-900">Buat Jadwal Penyiaran Baru</h1>
             <p className="text-xs text-slate-500 font-normal">
-              Atur playlist target, multi jam tayang harian, dan putaran tayang layar.
+              Atur playlist target, multi jam tayang harian, dan penugasan layar TV.
             </p>
           </div>
         </div>
@@ -313,7 +336,7 @@ export default function CreateSchedulePage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* ── SECTION 1: Informasi Dasar Jadwal ── */}
+        {/* SECTION 1: Info & Playlist */}
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-6 space-y-5">
           <div className="flex items-center gap-2.5 border-b border-slate-100 pb-4">
             <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
@@ -326,7 +349,6 @@ export default function CreateSchedulePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Nama Jadwal */}
             <div className="space-y-1.5 md:col-span-2">
               <Label className="text-xs font-bold text-slate-800">
                 Nama Agenda Penyiaran <span className="text-red-500">*</span>
@@ -340,7 +362,6 @@ export default function CreateSchedulePage() {
               />
             </div>
 
-            {/* Playlist Target */}
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-800">
                 Playlist Target Media <span className="text-red-500">*</span>
@@ -355,7 +376,7 @@ export default function CreateSchedulePage() {
                   <option value="" disabled>Pilih Playlist...</option>
                   {playlists.map((pl) => (
                     <option key={pl.id} value={pl.id}>
-                      {pl.name} ({pl.status.toUpperCase()})
+                      {pl.name} (Looping: {pl.loop_count === 0 ? 'Kontinu' : `${pl.loop_count ?? 3}x`})
                     </option>
                   ))}
                 </select>
@@ -363,7 +384,6 @@ export default function CreateSchedulePage() {
               </div>
             </div>
 
-            {/* Mode Penyiaran */}
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-800">Mode Penyiaran</Label>
               <div className="relative">
@@ -381,7 +401,7 @@ export default function CreateSchedulePage() {
           </div>
         </div>
 
-        {/* ── SECTION 2: Periode Tanggal & Multi Jam Tayang ── */}
+        {/* SECTION 2: Periode Tanggal & Multi Jam Tayang */}
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-6 space-y-6">
           <div className="flex items-center gap-2.5 border-b border-slate-100 pb-4">
             <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
@@ -389,11 +409,10 @@ export default function CreateSchedulePage() {
             </div>
             <div>
               <h2 className="text-sm font-bold text-slate-900">Periode Tanggal & Multi Jam Tayang Harian</h2>
-              <p className="text-xs text-slate-500 font-normal">Tentukan tanggal tayang, multi jam tayang (Pagi, Siang, Sore, Malam), dan putaran tayang.</p>
+              <p className="text-xs text-slate-500 font-normal">Tentukan tanggal tayang dan setel jam tayang sesi harian (Pagi, Siang, Sore, Malam).</p>
             </div>
           </div>
 
-          {/* Range Tanggal */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-slate-800">Tanggal Mulai <span className="text-red-500">*</span></Label>
@@ -417,46 +436,69 @@ export default function CreateSchedulePage() {
             </div>
           </div>
 
-          {/* Multi Jam Tayang Presets */}
+          {/* Editable Multi Jam Tayang Presets */}
           <div className="space-y-3 pt-2 border-t border-slate-100">
             <div className="flex items-center justify-between">
               <Label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                 <Clock className="w-4 h-4 text-blue-600" />
-                Multi Jam Tayang Harian
+                Multi Jam Tayang Harian (Jam Preset Dapat Diubah)
               </Label>
-              <span className="text-[11px] text-slate-400 font-normal">Pilih preset atau buat jam kustom</span>
+              <span className="text-[11px] text-slate-400 font-normal">Klik jam pada preset untuk mengedit jam tayangnya</span>
             </div>
 
-            {/* Quick Preset Buttons */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              {presets.map((preset) => {
+            {/* Presets Cards Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              {presetList.map((preset) => {
                 const Icon = preset.icon;
                 const isSelected = startTimes.includes(preset.time);
                 return (
-                  <button
-                    type="button"
-                    key={preset.time}
-                    onClick={() => togglePresetTime(preset.time)}
-                    className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between space-y-2 cursor-pointer ${
+                  <div
+                    key={preset.key}
+                    className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between space-y-3 ${
                       isSelected
                         ? 'bg-blue-600 text-white border-blue-600 shadow-2xs'
-                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100/80'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold flex items-center gap-1.5">
-                        <Icon className={`w-3.5 h-3.5 ${isSelected ? 'text-white' : 'text-slate-500'}`} />
-                        {preset.label}
-                      </span>
-                      {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                      <button
+                        type="button"
+                        onClick={() => togglePresetTime(preset.time)}
+                        className="flex items-center gap-1.5 text-xs font-bold"
+                      >
+                        <Icon className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-slate-500'}`} />
+                        <span>{preset.label}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => togglePresetTime(preset.time)}
+                        className={`w-5 h-5 rounded-full flex items-center justify-center border transition-all ${
+                          isSelected ? 'bg-white text-blue-600 border-white' : 'bg-white text-slate-400 border-slate-300'
+                        }`}
+                      >
+                        {isSelected && <CheckCircle2 className="w-3.5 h-3.5 fill-current" />}
+                      </button>
                     </div>
-                    <span className="font-mono text-sm font-bold">{preset.time} WIB</span>
-                  </button>
+
+                    {/* Editable Time Input inside Preset */}
+                    <div className="flex items-center gap-1.5 bg-white/20 p-1 rounded-xl backdrop-blur-xs">
+                      <Clock className={`w-3.5 h-3.5 ml-1 ${isSelected ? 'text-white' : 'text-slate-400'}`} />
+                      <input
+                        type="time"
+                        value={preset.time}
+                        onChange={(e) => handlePresetTimeChange(preset.key, e.target.value)}
+                        className={`w-full bg-transparent font-mono text-xs font-bold focus:outline-none ${
+                          isSelected ? 'text-white' : 'text-slate-900'
+                        }`}
+                      />
+                      <Edit2 className={`w-3 h-3 mr-1 ${isSelected ? 'text-blue-100' : 'text-slate-400'}`} />
+                    </div>
+                  </div>
                 );
               })}
             </div>
 
-            {/* Selected Time Slots List & Custom Input */}
+            {/* Selected Active Slots */}
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-3 mt-3">
               <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">
                 Daftar Slot Jam Tayang Aktif ({startTimes.length} Slot)
@@ -481,7 +523,7 @@ export default function CreateSchedulePage() {
                 ))}
               </div>
 
-              {/* Add Custom Time Input */}
+              {/* Add Custom Time */}
               <div className="flex items-center gap-2 pt-2 border-t border-slate-200/60">
                 <span className="text-xs font-medium text-slate-600">Tambah Jam Tayang Kustom:</span>
                 <input
@@ -502,41 +544,6 @@ export default function CreateSchedulePage() {
             </div>
           </div>
 
-          {/* Looping / Putaran Tayang Selector */}
-          <div className="space-y-2 pt-2 border-t border-slate-100">
-            <Label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-              <Repeat className="w-4 h-4 text-purple-600" />
-              Jumlah Putaran Tayang (Looping Per Sesi)
-            </Label>
-            <p className="text-[11px] text-slate-500 font-normal">
-              Jumlah berapa kali seluruh isi media dalam playlist diputar secara berulang per slot jam tayang.
-            </p>
-
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 pt-1">
-              {[
-                { label: '1x Putaran', val: 1 },
-                { label: '2x Putaran', val: 2 },
-                { label: '3x Putaran', val: 3 },
-                { label: '5x Putaran', val: 5 },
-                { label: '10x Putaran', val: 10 },
-                { label: 'Kontinu', val: 0 },
-              ].map((opt) => (
-                <button
-                  type="button"
-                  key={opt.val}
-                  onClick={() => setLoopCount(opt.val)}
-                  className={`py-2 px-3 rounded-xl border text-xs font-bold transition-all text-center ${
-                    loopCount === opt.val
-                      ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
-                      : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Real-time Duration Calculator Box */}
           <div className="p-4 rounded-xl bg-blue-50/70 border border-blue-100 space-y-2">
             <div className="flex items-center justify-between">
@@ -550,12 +557,18 @@ export default function CreateSchedulePage() {
             </div>
 
             <div className="text-xs text-blue-900 font-normal leading-relaxed space-y-1">
+              <p className="flex items-center gap-1.5">
+                <Repeat className="w-3.5 h-3.5 text-purple-600" />
+                <strong>Putaran Playlist ({selectedPlaylist?.name || 'Terpilih'}):</strong>{' '}
+                {playlistLoopCount === 0 ? 'Kontinu (Sepanjang Hari)' : `${playlistLoopCount}x Putaran`}
+              </p>
               <p>
                 <strong>Total Durasi Per Sesi:</strong>{' '}
-                {loopCount > 0
-                  ? `${formatDuration(totalSessionSeconds)} (${loopCount}x Putaran Tayang)`
+                {playlistLoopCount > 0
+                  ? `${formatDuration(totalSessionSeconds)} (${playlistLoopCount}x Putaran)`
                   : 'Sepanjang Hari (Kontinu)'}
               </p>
+
               <div className="pt-1 text-[11px] space-y-0.5">
                 {startTimes.map((st) => (
                   <div key={st} className="flex items-center gap-2 text-blue-800">
@@ -571,7 +584,7 @@ export default function CreateSchedulePage() {
           </div>
         </div>
 
-        {/* ── SECTION 3: Target Layar TV Penyiaran ── */}
+        {/* SECTION 3: Target Layar TV */}
         <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-6 space-y-5">
           <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div className="flex items-center gap-2.5">

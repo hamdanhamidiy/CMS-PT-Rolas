@@ -60,6 +60,7 @@ export interface Playlist {
   name: string;
   description: string | null;
   status: PlaylistStatus;
+  loop_count?: number;
   created_by: string;
   created_at: string;
   updated_at: string;

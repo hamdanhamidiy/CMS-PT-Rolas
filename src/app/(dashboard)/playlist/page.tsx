@@ -31,7 +31,6 @@ import {
   Loader2,
   Sparkles,
   ArrowRight,
-  Layers,
   Repeat,
   SlidersHorizontal,
 } from 'lucide-react';
@@ -49,6 +48,7 @@ export default function PlaylistPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [newLoopCount, setNewLoopCount] = useState<number>(3); // Default 3x putaran
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -85,19 +85,20 @@ export default function PlaylistPage() {
       .insert({
         name: newName.trim(),
         description: newDesc.trim() || null,
+        loop_count: newLoopCount,
         status: 'draft',
         created_by: createdBy,
       })
       .select()
       .single();
 
-    // Fallback if foreign key constraint failed
     if (error && error.message.includes('foreign key constraint')) {
       const { data: retryData, error: retryErr } = await supabase
         .from('playlists')
         .insert({
           name: newName.trim(),
           description: newDesc.trim() || null,
+          loop_count: newLoopCount,
           status: 'draft',
           created_by: null,
         })
@@ -119,13 +120,14 @@ export default function PlaylistPage() {
       'create_playlist',
       'playlist',
       data.id,
-      `Membuat playlist: ${newName.trim()}`
+      `Membuat playlist: ${newName.trim()} (${newLoopCount === 0 ? 'Kontinu' : `${newLoopCount}x putaran`})`
     );
 
     toast.success('Playlist berhasil dibuat');
     setShowCreate(false);
     setNewName('');
     setNewDesc('');
+    setNewLoopCount(3);
     setCreating(false);
     loadPlaylists();
   };
@@ -172,8 +174,7 @@ export default function PlaylistPage() {
 
   return (
     <div className="pb-10 space-y-5">
-      
-      {/* ── Integrated Corporate Header Bar (No Bulky Banners) ── */}
+      {/* ── Corporate Header Bar ── */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -196,7 +197,7 @@ export default function PlaylistPage() {
             </div>
           </div>
           <p className="text-xs text-slate-500 font-normal mt-1">
-            Atur kelompok media, urutan slide, serta batas durasi penayangan untuk disiarkan ke TV.
+            Atur kelompok media, urutan slide, serta pengaturan putaran tayang (looping) untuk disiarkan ke TV.
           </p>
         </div>
 
@@ -209,13 +210,10 @@ export default function PlaylistPage() {
         </button>
       </header>
 
-      {/* ── Asymmetric 2-Column Board (8 cols + 4 cols) ── */}
+      {/* ── 2-Column Layout ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        
-        {/* ── Main Column (8 Cols): Playlist Directory ── */}
+        {/* Main Column */}
         <div className="lg:col-span-8 space-y-4">
-          
-          {/* Search Toolbar */}
           <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs">
             <div className="relative w-full">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -228,7 +226,6 @@ export default function PlaylistPage() {
             </div>
           </div>
 
-          {/* Directory Cards */}
           {filtered.length === 0 ? (
             <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-12 text-center">
               <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center mx-auto mb-3">
@@ -243,86 +240,90 @@ export default function PlaylistPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {filtered.map((playlist) => (
-                <div
-                  key={playlist.id}
-                  className="group bg-white rounded-xl p-4.5 border border-slate-200 shadow-2xs hover:border-slate-300 hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                >
-                  <div className="flex items-start gap-3.5 min-w-0">
-                    <div className="w-9 h-9 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center flex-shrink-0 mt-0.5 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-200">
-                      <Music4 className="w-4 h-4" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="text-xs font-bold text-slate-900 truncate leading-tight group-hover:text-indigo-600 transition-colors">
-                          {playlist.name}
-                        </h3>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${statusConfig[playlist.status]?.className || ''}`}>
-                          {statusConfig[playlist.status]?.label || playlist.status}
-                        </span>
+              {filtered.map((playlist) => {
+                const loopVal = playlist.loop_count ?? 3;
+                return (
+                  <div
+                    key={playlist.id}
+                    className="group bg-white rounded-xl p-4.5 border border-slate-200 shadow-2xs hover:border-slate-300 hover:shadow-md transition-all duration-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                  >
+                    <div className="flex items-start gap-3.5 min-w-0">
+                      <div className="w-9 h-9 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center flex-shrink-0 mt-0.5 group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-200">
+                        <Music4 className="w-4 h-4" />
                       </div>
-                      <p className="text-[11px] text-slate-500 font-normal truncate mt-1">
-                        {playlist.description || 'Tidak ada deskripsi tambahan'}
-                      </p>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-xs font-bold text-slate-900 truncate leading-tight group-hover:text-indigo-600 transition-colors">
+                            {playlist.name}
+                          </h3>
+                          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${statusConfig[playlist.status]?.className || ''}`}>
+                            {statusConfig[playlist.status]?.label || playlist.status}
+                          </span>
+                          {/* Looping Badge */}
+                          <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200/80 flex items-center gap-1">
+                            <Repeat className="w-3 h-3" />
+                            {loopVal === 0 ? 'Kontinu (Sepanjang Hari)' : `${loopVal}x Putaran`}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 font-normal truncate mt-1">
+                          {playlist.description || 'Tidak ada deskripsi tambahan'}
+                        </p>
 
-                      <div className="flex items-center gap-3 mt-2.5 text-[10px] text-slate-400 font-medium">
-                        <span className="text-slate-700 font-semibold bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/60">
-                          {playlist.items_count} Berkas Media
-                        </span>
-                        <span>•</span>
-                        <span>Dibuat {formatDateTime(playlist.created_at)}</span>
+                        <div className="flex items-center gap-3 mt-2.5 text-[10px] text-slate-400 font-medium">
+                          <span className="text-slate-700 font-semibold bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200/60">
+                            {playlist.items_count} Berkas Media
+                          </span>
+                          <span>•</span>
+                          <span>Dibuat {formatDateTime(playlist.created_at)}</span>
+                        </div>
                       </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-shrink-0 sm:self-center border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100 justify-between sm:justify-end">
+                      <Link href={`/playlist/${playlist.id}`}>
+                        <button className="px-3.5 py-2 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-slate-900 hover:text-white transition-all flex items-center gap-1.5 shadow-2xs group/btn">
+                          <Edit3 className="w-3.5 h-3.5" />
+                          <span>Kelola Urutan & Looping</span>
+                          <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
+                        </button>
+                      </Link>
+
+                      <AlertDialog>
+                        <AlertDialogTrigger className="p-2 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors">
+                          <Trash2 className="w-4 h-4" />
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="rounded-2xl border-slate-200">
+                          <AlertDialogHeader>
+                            <AlertDialogTitle className="text-slate-900 font-bold">Hapus Playlist?</AlertDialogTitle>
+                            <AlertDialogDescription className="text-slate-500 text-xs">
+                              Playlist &quot;{playlist.name}&quot; akan dihapus beserta urutan medianya. Tindakan ini tidak dapat dibatalkan.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel className="rounded-lg text-xs font-semibold">Batal</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDelete(playlist)}
+                              className="bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold"
+                            >
+                              Hapus Permanen
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 flex-shrink-0 sm:self-center border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100 justify-between sm:justify-end">
-                    <Link href={`/playlist/${playlist.id}`}>
-                      <button className="px-3.5 py-2 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-slate-900 hover:text-white transition-all flex items-center gap-1.5 shadow-2xs group/btn">
-                        <Edit3 className="w-3.5 h-3.5" />
-                        <span>Kelola Urutan Media</span>
-                        <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
-                      </button>
-                    </Link>
-
-                    <AlertDialog>
-                      <AlertDialogTrigger className="p-2 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-600 transition-colors">
-                        <Trash2 className="w-4 h-4" />
-                      </AlertDialogTrigger>
-                      <AlertDialogContent className="rounded-2xl border-slate-200">
-                        <AlertDialogHeader>
-                          <AlertDialogTitle className="text-slate-900 font-bold">Hapus Playlist?</AlertDialogTitle>
-                          <AlertDialogDescription className="text-slate-500 text-xs">
-                            Playlist &quot;{playlist.name}&quot; akan dihapus beserta urutan medianya. Tindakan ini tidak dapat dibatalkan.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel className="rounded-lg text-xs font-semibold">Batal</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDelete(playlist)}
-                            className="bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold"
-                          >
-                            Hapus Permanen
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
-
         </div>
 
-        {/* ── Side Column (4 Cols): Operational Guide Panel ── */}
+        {/* Side Guide Panel */}
         <div className="lg:col-span-4 space-y-4">
-          
-          {/* Rules Guide Panel */}
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs space-y-4">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
               <SlidersHorizontal className="w-4 h-4 text-indigo-600" />
-              <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Mekanisme Penyiaran</h2>
+              <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Mekanisme Putaran (Looping)</h2>
             </div>
 
             <div className="space-y-3">
@@ -331,9 +332,9 @@ export default function PlaylistPage() {
                   1
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900">Antrean Rotasi Otomatis</h4>
+                  <h4 className="text-xs font-bold text-slate-900">Atur Looping per Playlist</h4>
                   <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
-                    TV akan memutar media secara berurutan sesuai susunan slide di dalam playlist.
+                    Pengaturan berapa kali playlist diputar kini langsung diatur pada tiap Playlist (1x, 2x, 3x, 5x, 10x, atau Kontinu).
                   </p>
                 </div>
               </div>
@@ -343,40 +344,15 @@ export default function PlaylistPage() {
                   2
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900">Perulangan Berkelanjutan</h4>
+                  <h4 className="text-xs font-bold text-slate-900">Mode Kontinu (Sepanjang Hari)</h4>
                   <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
-                    Setelah item terakhir selesai, pemutar TV akan otomatis mengulang kembali dari item pertama.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-2.5">
-                <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
-                  3
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900">Atur Durasi Per Slide</h4>
-                  <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
-                    Gambar dapat diatur durasi tampilnya (misal 10-30 detik), sedangkan video diputar sesuai durasinya.
+                    Mode Kontinu membuat pemutar TV memutar playlist ini tanpa henti selama jam sesi tayang aktif.
                   </p>
                 </div>
               </div>
             </div>
           </div>
-
-          {/* Quick Info Box */}
-          <div className="bg-slate-900 text-white p-5 rounded-xl border border-slate-800 shadow-2xs space-y-2">
-            <div className="flex items-center gap-2">
-              <Repeat className="w-4 h-4 text-emerald-400" />
-              <h4 className="text-xs font-bold">Integritas Playlist</h4>
-            </div>
-            <p className="text-[11px] text-slate-300 leading-relaxed font-normal">
-              Pastikan playlist berada dalam status <span className="text-emerald-400 font-bold">Aktif Tayang</span> saat dihubungkan ke Jadwal Penyiaran agar dapat diterima TV secara real-time.
-            </p>
-          </div>
-
         </div>
-
       </div>
 
       {/* ── CREATE PLAYLIST DIALOG ── */}
@@ -389,7 +365,7 @@ export default function PlaylistPage() {
             <div>
               <DialogTitle className="text-base font-bold text-slate-900 leading-snug">Buat Playlist Baru</DialogTitle>
               <DialogDescription className="text-xs text-slate-500 font-normal mt-0.5">
-                Kelompokkan berkas video dan gambar dalam satu daftar tayang untuk disiarkan ke TV.
+                Kelompokkan berkas video dan gambar serta atur batas putaran tayang (looping).
               </DialogDescription>
             </div>
           </div>
@@ -407,12 +383,9 @@ export default function PlaylistPage() {
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="Contoh: Playlist Lobby Utama / Promo Poli Klinik"
-                  className="pl-10 h-10 text-xs rounded-xl bg-slate-50/60 border-slate-200/80 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 transition-all font-medium"
+                  className="pl-10 h-10 text-xs rounded-xl bg-slate-50/60 border-slate-200/80 focus:bg-white"
                 />
               </div>
-              <p className="text-[11px] text-slate-400 font-normal">
-                Gunakan nama yang mudah dikenali berdasarkan lokasi atau jenis penyiaran.
-              </p>
             </div>
 
             <div className="space-y-1.5">
@@ -424,15 +397,50 @@ export default function PlaylistPage() {
                 value={newDesc}
                 onChange={(e) => setNewDesc(e.target.value)}
                 placeholder="Tuliskan keterangan singkat mengenai konten playlist ini..."
-                rows={3}
-                className="text-xs rounded-xl bg-slate-50/60 border-slate-200/80 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10 resize-none transition-all"
+                rows={2}
+                className="text-xs rounded-xl bg-slate-50/60 border-slate-200/80 focus:bg-white resize-none"
               />
+            </div>
+
+            {/* Putaran Looping Selector */}
+            <div className="space-y-2 pt-2 border-t border-slate-100">
+              <Label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                <Repeat className="w-4 h-4 text-purple-600" />
+                Jumlah Putaran Tayang (Looping)
+              </Label>
+              <p className="text-[11px] text-slate-500 font-normal">
+                Berapa kali seluruh isi media diputar secara berulang sebelum sesi tayang selesai.
+              </p>
+
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                {[
+                  { label: '1x', val: 1 },
+                  { label: '2x', val: 2 },
+                  { label: '3x', val: 3 },
+                  { label: '5x', val: 5 },
+                  { label: '10x', val: 10 },
+                  { label: 'Kontinu', val: 0 },
+                ].map((opt) => (
+                  <button
+                    type="button"
+                    key={opt.val}
+                    onClick={() => setNewLoopCount(opt.val)}
+                    className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all text-center ${
+                      newLoopCount === opt.val
+                        ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 flex items-start gap-2.5">
               <Sparkles className="w-4 h-4 text-indigo-600 flex-shrink-0 mt-0.5" />
               <p className="text-[11px] text-indigo-900 leading-relaxed font-medium">
-                Setelah playlist dibuat, Anda dapat menambahkan gambar/video dan menentukan urutan serta batas perulangannya.
+                Setelan looping ini otomatis digunakan oleh Jadwal Penyiaran yang memilih playlist ini.
               </p>
             </div>
           </div>
@@ -440,7 +448,7 @@ export default function PlaylistPage() {
           <DialogFooter className="gap-2 pt-2 border-t border-slate-100">
             <button
               onClick={() => setShowCreate(false)}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50 transition-all"
+              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50"
             >
               Batal
             </button>

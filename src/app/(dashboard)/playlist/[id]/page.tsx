@@ -273,6 +273,51 @@ export default function PlaylistEditorPage() {
         </div>
       </div>
 
+      {/* ── Looping Setting Card ── */}
+      <div className="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Repeat className="w-4 h-4 text-purple-600" />
+            <h3 className="text-xs font-bold text-slate-900">Pengaturan Putaran Tayang (Looping Playlist)</h3>
+          </div>
+          <span className="text-[11px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+            Total Sesi: {(playlist.loop_count ?? 3) === 0 ? 'Kontinu (Sepanjang Hari)' : formatDuration(totalLoopDuration * (playlist.loop_count ?? 3))}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+          {[
+            { label: '1x Putaran', val: 1 },
+            { label: '2x Putaran', val: 2 },
+            { label: '3x Putaran', val: 3 },
+            { label: '5x Putaran', val: 5 },
+            { label: '10x Putaran', val: 10 },
+            { label: 'Kontinu', val: 0 },
+          ].map((opt) => {
+            const isSelected = (playlist.loop_count ?? 3) === opt.val;
+            return (
+              <button
+                type="button"
+                key={opt.val}
+                onClick={async () => {
+                  const supabase = createClient();
+                  await supabase.from('playlists').update({ loop_count: opt.val }).eq('id', playlistId);
+                  setPlaylist((prev) => (prev ? { ...prev, loop_count: opt.val } : null));
+                  toast.success(`Putaran playlist diubah menjadi ${opt.label}`);
+                }}
+                className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all text-center ${
+                  isSelected
+                    ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
+                    : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
 
 
       {/* ── Items Container ── */}

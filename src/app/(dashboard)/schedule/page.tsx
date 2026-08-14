@@ -4,12 +4,10 @@ import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
   DialogTitle,
-  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
@@ -29,26 +27,23 @@ import {
   Loader2,
   Play,
   Pause,
-  XCircle,
   Megaphone,
   Tv,
   Clock,
   Calendar,
-  Sparkles,
   CheckCircle2,
   Edit3,
   Trash2,
-  ChevronDown,
   Repeat,
   Sunrise,
   Sun,
   Sunset,
   Moon,
-  X,
+  Edit2,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Schedule, Playlist, Screen } from '@/lib/types';
-import { formatDate, formatTime, ensureUserProfile, logActivity, formatDuration } from '@/lib/utils';
+import { formatDate, logActivity } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function SchedulePage() {
@@ -67,12 +62,24 @@ export default function SchedulePage() {
   const [editPriority, setEditPriority] = useState(1);
   const [editStartDate, setEditStartDate] = useState('');
   const [editEndDate, setEditEndDate] = useState('');
+
+  // Editable Presets State in Edit Modal
+  const [editPresetTimes, setEditPresetTimes] = useState<{
+    pagi: string;
+    siang: string;
+    sore: string;
+    malam: string;
+  }>({
+    pagi: '08:00',
+    siang: '12:00',
+    sore: '15:00',
+    malam: '19:00',
+  });
+
   const [editStartTimes, setEditStartTimes] = useState<string[]>(['08:00']);
-  const [editLoopCount, setEditLoopCount] = useState<number>(3);
   const [editStatus, setEditStatus] = useState<'draft' | 'active' | 'cancelled'>('draft');
   const [editSelectedScreens, setEditSelectedScreens] = useState<string[]>([]);
   const [savingEdit, setSavingEdit] = useState(false);
-  const [customEditTime, setCustomEditTime] = useState('10:00');
 
   // Delete Dialog State
   const [deletingSchedule, setDeletingSchedule] = useState<Schedule | null>(null);
@@ -87,7 +94,7 @@ export default function SchedulePage() {
     const [schedRes, playRes, screenRes] = await Promise.all([
       supabase
         .from('schedules')
-        .select('*, playlist:playlists(name), schedule_screens(screen_id)')
+        .select('*, playlist:playlists(name, loop_count), schedule_screens(screen_id)')
         .order('created_at', { ascending: false }),
       supabase.from('playlists').select('*').order('name'),
       supabase.from('screens').select('*').order('name'),
@@ -98,13 +105,6 @@ export default function SchedulePage() {
     setScreens(screenRes.data || []);
     setLoading(false);
   };
-
-  const presets = [
-    { label: 'Pagi', time: '08:00', icon: Sunrise },
-    { label: 'Siang', time: '12:00', icon: Sun },
-    { label: 'Sore', time: '15:00', icon: Sunset },
-    { label: 'Malam', time: '19:00', icon: Moon },
-  ];
 
   const handleStatusChange = async (schedule: Schedule, newStatus: 'active' | 'draft' | 'cancelled') => {
     const supabase = createClient();
@@ -138,17 +138,25 @@ export default function SchedulePage() {
     setEditPriority(schedule.priority || 1);
     setEditStartDate(schedule.start_date);
     setEditEndDate(schedule.end_date);
-    
-    // Multi time & loop
+
     const times = schedule.start_times && Array.isArray(schedule.start_times) && schedule.start_times.length > 0
       ? schedule.start_times
       : [schedule.start_time || '08:00'];
     setEditStartTimes(times);
-    setEditLoopCount(schedule.loop_count ?? 3);
     setEditStatus(schedule.status as any);
 
     const assignedScreenIds = (schedule as any).schedule_screens?.map((ss: any) => ss.screen_id) || [];
     setEditSelectedScreens(assignedScreenIds);
+  };
+
+  const handleEditPresetTimeChange = (key: 'pagi' | 'siang' | 'sore' | 'malam', newTime: string) => {
+    const oldTime = editPresetTimes[key];
+    setEditPresetTimes((prev) => ({ ...prev, [key]: newTime }));
+
+    if (editStartTimes.includes(oldTime)) {
+      const updated = editStartTimes.map((t) => (t === oldTime ? newTime : t)).sort();
+      setEditStartTimes(updated);
+    }
   };
 
   const toggleEditPresetTime = (timeVal: string) => {
@@ -176,8 +184,10 @@ export default function SchedulePage() {
 
     setSavingEdit(true);
     const supabase = createClient();
-
     const firstTime = editStartTimes[0] || '08:00';
+
+    const selectedPl = playlists.find((p) => p.id === editPlaylistId);
+    const selectedLoopCount = selectedPl?.loop_count ?? 3;
 
     // 1. Update schedule
     const { error: schedErr } = await supabase
@@ -191,7 +201,7 @@ export default function SchedulePage() {
         end_date: editEndDate,
         start_time: firstTime,
         start_times: editStartTimes,
-        loop_count: editLoopCount,
+        loop_count: selectedLoopCount,
         status: editStatus,
       })
       .eq('id', editingSchedule.id);
@@ -276,9 +286,16 @@ export default function SchedulePage() {
     );
   }
 
+  const editPresetList = [
+    { key: 'pagi' as const, label: 'Pagi', time: editPresetTimes.pagi, icon: Sunrise },
+    { key: 'siang' as const, label: 'Siang', time: editPresetTimes.siang, icon: Sun },
+    { key: 'sore' as const, label: 'Sore', time: editPresetTimes.sore, icon: Sunset },
+    { key: 'malam' as const, label: 'Malam', time: editPresetTimes.malam, icon: Moon },
+  ];
+
   return (
     <div className="pb-12 space-y-6">
-      {/* ── Header ── */}
+      {/* Header */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
@@ -301,9 +318,8 @@ export default function SchedulePage() {
         </Link>
       </header>
 
-      {/* ── Content Grid ── */}
+      {/* Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Main List */}
         <div className="lg:col-span-3 space-y-4">
           {/* Toolbar */}
           <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -343,11 +359,12 @@ export default function SchedulePage() {
           ) : (
             <div className="space-y-3.5">
               {filtered.map((schedule) => {
-                const screenCount = (schedule as any).schedule_screens?.length || 0;
                 const timesList: string[] = schedule.start_times && Array.isArray(schedule.start_times) && schedule.start_times.length > 0
                   ? schedule.start_times
                   : [schedule.start_time || '08:00'];
-                const loops = schedule.loop_count ?? 3;
+                
+                // Read loop count from playlist or schedule
+                const loops = (schedule as any).playlist?.loop_count ?? schedule.loop_count ?? 3;
 
                 return (
                   <div
@@ -431,7 +448,6 @@ export default function SchedulePage() {
 
                     {/* Schedule Metadata Pills */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs text-slate-600">
-                      {/* Tanggal */}
                       <div className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
                         <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
                         <div>
@@ -442,7 +458,6 @@ export default function SchedulePage() {
                         </div>
                       </div>
 
-                      {/* Multi Jam Tayang */}
                       <div className="flex items-center gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200/80 sm:col-span-2">
                         <Clock className="w-4 h-4 text-blue-600 shrink-0" />
                         <div className="flex-1">
@@ -450,7 +465,7 @@ export default function SchedulePage() {
                             <span className="text-[10px] font-bold text-slate-400 uppercase">Multi Jam Tayang Harian</span>
                             <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.2 rounded border border-purple-200 flex items-center gap-1">
                               <Repeat className="w-2.5 h-2.5" />
-                              {loops === 0 ? 'Kontinu' : `${loops}x Putaran`}
+                              {loops === 0 ? 'Kontinu' : `${loops}x Putaran Playlist`}
                             </span>
                           </div>
                           <div className="flex flex-wrap gap-1.5 mt-1">
@@ -520,7 +535,9 @@ export default function SchedulePage() {
                     className="w-full h-9 px-3 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl"
                   >
                     {playlists.map((pl) => (
-                      <option key={pl.id} value={pl.id}>{pl.name}</option>
+                      <option key={pl.id} value={pl.id}>
+                        {pl.name} (Looping: {pl.loop_count === 0 ? 'Kontinu' : `${pl.loop_count ?? 3}x`})
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -558,48 +575,43 @@ export default function SchedulePage() {
                 </div>
               </div>
 
-              {/* Multi Jam Tayang Edit */}
+              {/* Editable Multi Jam Tayang Presets in Edit Modal */}
               <div className="space-y-2 pt-2 border-t border-slate-100">
                 <Label className="text-xs font-bold text-slate-800 flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-blue-600" /> Multi Jam Tayang Harian
+                  <Clock className="w-3.5 h-3.5 text-blue-600" /> Multi Jam Tayang Harian (Preset Editable)
                 </Label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {presets.map((p) => {
+                  {editPresetList.map((p) => {
                     const isSel = editStartTimes.includes(p.time);
                     return (
-                      <button
-                        type="button"
-                        key={p.time}
-                        onClick={() => toggleEditPresetTime(p.time)}
-                        className={`p-2 rounded-lg border text-xs font-bold transition-all ${
+                      <div
+                        key={p.key}
+                        className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex flex-col justify-between space-y-1.5 ${
                           isSel ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-50 text-slate-700 border-slate-200'
                         }`}
                       >
-                        {p.label} ({p.time})
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => toggleEditPresetTime(p.time)}
+                          className="flex items-center justify-between w-full text-[11px]"
+                        >
+                          <span>{p.label}</span>
+                          {isSel && <CheckCircle2 className="w-3 h-3 text-white" />}
+                        </button>
+                        <div className="flex items-center gap-1 bg-white/20 p-1 rounded-lg">
+                          <input
+                            type="time"
+                            value={p.time}
+                            onChange={(e) => handleEditPresetTimeChange(p.key, e.target.value)}
+                            className={`w-full bg-transparent font-mono text-xs font-bold focus:outline-none ${
+                              isSel ? 'text-white' : 'text-slate-900'
+                            }`}
+                          />
+                          <Edit2 className={`w-3 h-3 ${isSel ? 'text-white' : 'text-slate-400'}`} />
+                        </div>
+                      </div>
                     );
                   })}
-                </div>
-              </div>
-
-              {/* Putaran Tayang Edit */}
-              <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                <Label className="text-xs font-bold text-slate-800 flex items-center gap-1">
-                  <Repeat className="w-3.5 h-3.5 text-purple-600" /> Jumlah Putaran Tayang (Looping)
-                </Label>
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                  {[1, 2, 3, 5, 10, 0].map((v) => (
-                    <button
-                      type="button"
-                      key={v}
-                      onClick={() => setEditLoopCount(v)}
-                      className={`py-1.5 px-2 rounded-lg border text-xs font-bold ${
-                        editLoopCount === v ? 'bg-purple-600 text-white border-purple-600' : 'bg-slate-50 text-slate-700 border-slate-200'
-                      }`}
-                    >
-                      {v === 0 ? 'Kontinu' : `${v}x`}
-                    </button>
-                  ))}
                 </div>
               </div>
             </div>
@@ -624,7 +636,7 @@ export default function SchedulePage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── DELETE CONFIRMATION DIALOG ── */}
+      {/* DELETE CONFIRMATION DIALOG */}
       <AlertDialog open={!!deletingSchedule} onOpenChange={() => setDeletingSchedule(null)}>
         <AlertDialogContent className="rounded-2xl border-slate-200">
           <AlertDialogHeader>

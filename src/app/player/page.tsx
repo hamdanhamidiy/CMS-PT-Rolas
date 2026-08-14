@@ -329,7 +329,13 @@ export default function PlayerPage() {
         ? sched.start_times
         : [sched.start_time || '08:00'];
       
-      const loopCnt = sched.loop_count ?? 3;
+      const { data: playlistData } = await supabase
+        .from('playlists')
+        .select('loop_count')
+        .eq('id', sched.playlist_id)
+        .single();
+      
+      const loopCnt = playlistData?.loop_count ?? sched.loop_count ?? 3;
 
       // Get playlist duration for this schedule
       const { data: items } = await supabase
