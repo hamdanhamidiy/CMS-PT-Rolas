@@ -122,7 +122,10 @@ export async function logActivity(
   action: string,
   entityType: string,
   entityId: string | null = null,
-  details: string | null = null
+  details: string | null = null,
+  location: string | null = null,
+  ipAddress: string | null = null,
+  metadata: Record<string, any> | null = null
 ): Promise<void> {
   try {
     let userId: string | null = null;
@@ -135,13 +138,18 @@ export async function logActivity(
       userId = null;
     }
 
-    await supabase.from('activity_logs').insert({
+    const payload: any = {
       user_id: userId,
       action,
       entity_type: entityType,
       entity_id: entityId,
       details,
-    });
+    };
+    if (location) payload.location = location;
+    if (ipAddress) payload.ip_address = ipAddress;
+    if (metadata) payload.metadata = metadata;
+
+    await supabase.from('activity_logs').insert(payload);
   } catch (err) {
     console.error('Failed to log activity:', err);
   }

@@ -7,7 +7,6 @@ import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogDescription,
   DialogFooter,
@@ -34,7 +33,6 @@ import {
   Plus,
   Search,
   Loader2,
-  Copy,
   MapPin,
   MoreVertical,
   Edit,
@@ -42,12 +40,12 @@ import {
   Trash2,
   Grid3X3,
   List,
-  KeyRound,
   Tv,
-  Radio,
+  ExternalLink,
+  Sparkles,
 } from 'lucide-react';
 import type { Screen } from '@/lib/types';
-import { generateActivationCode, generateScreenCode, getRelativeTime, logActivity } from '@/lib/utils';
+import { generateScreenCode, getRelativeTime, logActivity } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function ScreensPage() {
@@ -56,7 +54,6 @@ export default function ScreensPage() {
   const [search, setSearch] = useState('');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [showCreate, setShowCreate] = useState(false);
-  const [showActivation, setShowActivation] = useState<{ screenId: string; code: string } | null>(null);
   const [creating, setCreating] = useState(false);
 
   // Create form
@@ -95,7 +92,7 @@ export default function ScreensPage() {
         name: newName.trim(),
         site: newSite.trim(),
         area: newArea.trim(),
-        status: 'inactive',
+        status: 'online',
       })
       .select()
       .single();
@@ -114,41 +111,13 @@ export default function ScreensPage() {
       `Menambah layar: ${newName.trim()} (${screenCode})`
     );
 
-    toast.success('Layar berhasil ditambahkan');
+    toast.success('Layar berhasil ditambahkan dan siap digunakan!');
     setShowCreate(false);
     setNewName('');
     setNewSite('');
     setNewArea('');
     setCreating(false);
     loadScreens();
-  };
-
-  const generateCode = async (screen: Screen) => {
-    const supabase = createClient();
-    const code = generateActivationCode();
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24);
-
-    const { error } = await supabase.from('screen_activations').insert({
-      screen_id: screen.id,
-      activation_code: code,
-      expires_at: expiresAt.toISOString(),
-    });
-
-    if (error) {
-      toast.error('Gagal membuat kode aktivasi');
-      return;
-    }
-
-    await logActivity(
-      supabase,
-      'generate_activation_code',
-      'screen',
-      screen.id,
-      `Kode aktivasi untuk ${screen.name}: ${code}`
-    );
-
-    setShowActivation({ screenId: screen.id, code });
   };
 
   const handleUpdate = async () => {
@@ -207,13 +176,12 @@ export default function ScreensPage() {
     const { error } = await supabase
       .from('screens')
       .update({
-        device_token: null,
         status: 'inactive',
       })
       .eq('id', selectedScreen.id);
 
     if (error) {
-      toast.error('Gagal mereset koneksi layar');
+      toast.error('Gagal mereset status layar');
       return;
     }
 
@@ -222,18 +190,17 @@ export default function ScreensPage() {
       'update_screen',
       'screen',
       selectedScreen.id,
-      `Reset koneksi layar: ${selectedScreen.name}`
+      `Reset status layar: ${selectedScreen.name}`
     );
 
-    toast.success('Koneksi layar berhasil direset');
+    toast.success('Status layar berhasil direset');
     setShowReset(false);
     setSelectedScreen(null);
     loadScreens();
   };
 
-  const copyCode = (code: string) => {
-    navigator.clipboard.writeText(code);
-    toast.success('Kode disalin ke clipboard');
+  const openWebPlayer = () => {
+    window.open('/player', '_blank');
   };
 
   const filtered = screens.filter(
@@ -256,8 +223,7 @@ export default function ScreensPage() {
 
   return (
     <div className="pb-10 space-y-6">
-      
-      {/* ── Integrated Corporate Header Bar ── */}
+      {/* ── Corporate Header Bar ── */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-200/80 pb-5">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -278,20 +244,29 @@ export default function ScreensPage() {
             </div>
           </div>
           <p className="text-xs text-slate-500 font-normal mt-1">
-            Manajemen perangkat TV Digital Signage, alokasi lokasi cabang, dan alokasi kode aktivasi.
+            Daftarkan perangkat TV Signage. Perangkat TV dapat langsung memilih nama layar di Web Player tanpa kode aktivasi.
           </p>
         </div>
 
-        <button
-          onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 shadow-2xs transition-all active:scale-[0.98]"
-        >
-          <Plus className="w-3.5 h-3.5" />
-          Tambah Layar Baru
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={openWebPlayer}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 text-xs font-semibold hover:bg-blue-100 transition-all active:scale-[0.98]"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            Buka Web Player
+          </button>
+          <button
+            onClick={() => setShowCreate(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 shadow-2xs transition-all active:scale-[0.98]"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Tambah Layar Baru
+          </button>
+        </div>
       </header>
 
-      {/* ── Unified Toolbar (Search & View Mode Toggle) ── */}
+      {/* ── Toolbar ── */}
       <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
         <div className="relative flex-1 w-full">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -325,7 +300,7 @@ export default function ScreensPage() {
         </div>
       </div>
 
-      {/* ── Master Screen Display ── */}
+      {/* ── Master Display ── */}
       {filtered.length === 0 ? (
         <div className="bg-white rounded-xl border border-slate-200 shadow-2xs p-12 text-center">
           <MonitorPlay className="w-10 h-10 mx-auto text-slate-300 mb-3" />
@@ -342,7 +317,7 @@ export default function ScreensPage() {
                 <tr className="bg-slate-50/80 border-b border-slate-200/80">
                   <th className="text-left font-semibold text-slate-500 px-6 py-3 tracking-wider uppercase text-[11px]">Identitas TV</th>
                   <th className="text-left font-semibold text-slate-500 px-6 py-3 tracking-wider uppercase text-[11px]">Lokasi Site & Area</th>
-                  <th className="text-left font-semibold text-slate-500 px-6 py-3 tracking-wider uppercase text-[11px]">Status Koneksi</th>
+                  <th className="text-left font-semibold text-slate-500 px-6 py-3 tracking-wider uppercase text-[11px]">Status Perangkat</th>
                   <th className="text-left font-semibold text-slate-500 px-6 py-3 tracking-wider uppercase text-[11px]">Terakhir Aktif</th>
                   <th className="text-right font-semibold text-slate-500 px-6 py-3 tracking-wider uppercase text-[11px]">Aksi</th>
                 </tr>
@@ -368,29 +343,22 @@ export default function ScreensPage() {
                       )}
                     </td>
                     <td className="px-6 py-3.5">
-                      {screen.status === 'online' ? (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200/60">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                          Online
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">
-                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
-                          {screen.status === 'inactive' ? 'Tidak Aktif' : 'Offline'}
-                        </span>
-                      )}
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-md border border-emerald-200/60">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        Siap Digunakan
+                      </span>
                     </td>
                     <td className="px-6 py-3.5 text-xs text-slate-500 font-normal">
-                      {screen.last_seen ? getRelativeTime(screen.last_seen) : '—'}
+                      {screen.last_seen ? getRelativeTime(screen.last_seen) : 'Baru Saja'}
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={() => generateCode(screen)}
-                          className="px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-2xs transition-all flex items-center gap-1.5 active:scale-95"
+                          onClick={openWebPlayer}
+                          className="px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200/80 transition-all flex items-center gap-1.5"
                         >
-                          <KeyRound className="w-3.5 h-3.5 text-blue-400" />
-                          <span>Kode Aktivasi</span>
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>Player</span>
                         </button>
 
                         <DropdownMenu>
@@ -419,7 +387,7 @@ export default function ScreensPage() {
                               }}
                             >
                               <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
-                              <span>Reset Koneksi Layar</span>
+                              <span>Reset Status Layar</span>
                             </DropdownMenuItem>
                             <DropdownMenuSeparator className="my-1 bg-slate-100" />
                             <DropdownMenuItem
@@ -453,13 +421,9 @@ export default function ScreensPage() {
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${
-                      screen.status === 'online' ? 'bg-emerald-500' : 'bg-slate-300'
-                    }`} />
-                    <span className={`text-[11px] font-bold capitalize ${
-                      screen.status === 'online' ? 'text-emerald-700' : 'text-slate-500'
-                    }`}>
-                      {screen.status === 'online' ? 'Online' : screen.status === 'inactive' ? 'Tidak Aktif' : 'Offline'}
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span className="text-[11px] font-bold text-emerald-700">
+                      Siap Digunakan
                     </span>
                   </div>
 
@@ -489,7 +453,7 @@ export default function ScreensPage() {
                         }}
                       >
                         <RotateCcw className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Reset Koneksi Layar</span>
+                        <span>Reset Status Layar</span>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator className="my-1 bg-slate-100" />
                       <DropdownMenuItem
@@ -520,21 +484,16 @@ export default function ScreensPage() {
                   <span className="font-mono bg-slate-100 px-2 py-0.5 rounded-md text-[10px] font-semibold text-slate-600 border border-slate-200/80">
                     {screen.screen_code}
                   </span>
-                  {screen.last_seen && (
-                    <span className="text-[10px] text-slate-400 font-normal">
-                      • {getRelativeTime(screen.last_seen)}
-                    </span>
-                  )}
                 </div>
               </div>
 
               <div className="pt-3 border-t border-slate-100">
                 <button
-                  onClick={() => generateCode(screen)}
-                  className="w-full px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-900 text-slate-700 hover:text-white text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-1.5"
+                  onClick={openWebPlayer}
+                  className="w-full px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-blue-600 text-white text-xs font-semibold transition-all duration-200 flex items-center justify-center gap-1.5"
                 >
-                  <KeyRound className="w-3.5 h-3.5" />
-                  Generate Kode Aktivasi
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Buka Web Player
                 </button>
               </div>
             </div>
@@ -545,7 +504,6 @@ export default function ScreensPage() {
       {/* ── CREATE SCREEN DIALOG ── */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
         <DialogContent className="rounded-2xl border-slate-200 p-6 max-w-lg shadow-xl">
-          {/* Header with Icon */}
           <div className="flex items-start gap-3.5 border-b border-slate-100 pb-4">
             <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0 shadow-2xs">
               <Tv className="w-5 h-5" />
@@ -553,13 +511,12 @@ export default function ScreensPage() {
             <div>
               <DialogTitle className="text-base font-bold text-slate-900 leading-snug">Tambah Layar TV Baru</DialogTitle>
               <DialogDescription className="text-xs text-slate-500 font-normal mt-0.5">
-                Daftarkan perangkat TV ke sistem. Setelah dibuat, terbitkan kode aktivasi untuk menghubungkan TV.
+                Daftarkan perangkat TV baru. Perangkat TV dapat langsung memilih layar ini di Web Player tanpa kode aktivasi.
               </DialogDescription>
             </div>
           </div>
 
           <div className="space-y-4 py-3">
-            {/* Field 1: Nama Layar */}
             <div className="space-y-1.5">
               <Label htmlFor="screen-name" className="text-xs font-bold text-slate-800 flex items-center justify-between">
                 <span>Nama Perangkat Layar <span className="text-red-500">*</span></span>
@@ -576,11 +533,10 @@ export default function ScreensPage() {
                 />
               </div>
               <p className="text-[11px] text-slate-400 font-normal">
-                Beri nama unik yang mudah diidentifikasi oleh pengelola cabang.
+                Beri nama unik yang mudah diidentifikasi oleh pengelola.
               </p>
             </div>
 
-            {/* Field 2 & 3: Lokasi & Area */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="screen-site" className="text-xs font-bold text-slate-800">
@@ -612,11 +568,10 @@ export default function ScreensPage() {
               </div>
             </div>
 
-            {/* Info callout */}
-            <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 flex items-start gap-2.5">
-              <KeyRound className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-              <p className="text-[11px] text-blue-900 leading-relaxed font-medium">
-                Setelah pendaftaran disimpan, Anda dapat mengklik tombol &quot;Kode Aktivasi&quot; untuk mendapatkan 6 angka koneksi TV.
+            <div className="p-3 bg-emerald-50/70 rounded-xl border border-emerald-100 flex items-start gap-2.5 text-emerald-900">
+              <Sparkles className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+              <p className="text-[11px] leading-relaxed font-medium">
+                Setelah disimpan, layar langsung aktif & muncul di menu pilihan Web Player (<code className="text-emerald-700 font-bold">/player</code>).
               </p>
             </div>
           </div>
@@ -640,52 +595,15 @@ export default function ScreensPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── ACTIVATION CODE DIALOG ── */}
-      <Dialog open={!!showActivation} onOpenChange={() => setShowActivation(null)}>
-        <DialogContent className="max-w-sm rounded-2xl border-slate-200 p-6 text-center shadow-xl">
-          <DialogHeader>
-            <DialogTitle className="text-base font-bold text-slate-900">Kode Aktivasi TV</DialogTitle>
-            <DialogDescription className="text-xs text-slate-500 font-normal">
-              Masukkan 6 angka ini pada aplikasi TV Signage Player untuk mendaftarkan perangkat.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-4">
-            <div className="text-3xl font-bold tracking-[0.3em] font-mono text-slate-900 bg-slate-100 rounded-xl py-4 px-4 border border-slate-200">
-              {showActivation?.code}
-            </div>
-            <p className="text-[11px] text-slate-400 font-normal mt-2">
-              Kode aktivasi berlaku selama 24 jam.
-            </p>
-          </div>
-
-          <DialogFooter className="flex-row gap-2 justify-center sm:justify-center">
-            <button
-              onClick={() => showActivation && copyCode(showActivation.code)}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition-all flex items-center gap-1.5"
-            >
-              <Copy className="w-3.5 h-3.5" />
-              Salin Kode
-            </button>
-            <button
-              onClick={() => setShowActivation(null)}
-              className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 transition-all"
-            >
-              Tutup
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* ── EDIT DIALOG ── */}
       <Dialog open={showEdit} onOpenChange={setShowEdit}>
         <DialogContent className="rounded-2xl border-slate-200 p-6 max-w-md">
-          <DialogHeader>
+          <div className="border-b border-slate-100 pb-3">
             <DialogTitle className="text-base font-bold text-slate-900">Edit Informasi Layar</DialogTitle>
-            <DialogDescription className="text-xs text-slate-500 font-normal">
+            <DialogDescription className="text-xs text-slate-500 font-normal mt-0.5">
               Perbarui nama, lokasi, atau area penempatan layar TV ini.
             </DialogDescription>
-          </DialogHeader>
+          </div>
 
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
@@ -720,7 +638,7 @@ export default function ScreensPage() {
             </div>
           </div>
 
-          <DialogFooter className="gap-2">
+          <DialogFooter className="gap-2 pt-2 border-t border-slate-100">
             <button onClick={() => setShowEdit(false)} className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50">
               Batal
             </button>
@@ -739,15 +657,15 @@ export default function ScreensPage() {
       <AlertDialog open={showReset} onOpenChange={setShowReset}>
         <AlertDialogContent className="rounded-2xl border-slate-200">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-slate-900 font-bold">Reset Koneksi Layar?</AlertDialogTitle>
+            <AlertDialogTitle className="text-slate-900 font-bold">Reset Status Layar?</AlertDialogTitle>
             <AlertDialogDescription className="text-slate-500 text-xs">
-              Tindakan ini akan memutus koneksi TV secara paksa. Layar akan menjadi &apos;Inactive&apos; dan Anda harus melakukan generate kode aktivasi ulang di TV tersebut.
+              Tindakan ini akan mengosongkan sesi aktif layar <strong>{selectedScreen?.name}</strong>.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-lg text-xs font-semibold">Batal</AlertDialogCancel>
             <AlertDialogAction onClick={handleReset} className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold">
-              Ya, Reset Koneksi
+              Ya, Reset Status
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

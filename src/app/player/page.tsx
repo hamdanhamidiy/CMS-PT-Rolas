@@ -2,9 +2,23 @@
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type { Media, PlaylistItem } from '@/lib/types';
+import type { Media, PlaylistItem, Screen } from '@/lib/types';
 import Logo from '@/components/shared/Logo';
-import { Tv, KeyRound, Loader2, Sparkles, Maximize, Minimize, Expand, LogOut, Volume2, VolumeX } from 'lucide-react';
+import {
+  Tv,
+  Loader2,
+  Sparkles,
+  Maximize,
+  Minimize,
+  Expand,
+  Volume2,
+  VolumeX,
+  Search,
+  MapPin,
+  CheckCircle2,
+  Play,
+  RotateCcw,
+} from 'lucide-react';
 
 // ============================================
 // Constants
@@ -12,16 +26,16 @@ import { Tv, KeyRound, Loader2, Sparkles, Maximize, Minimize, Expand, LogOut, Vo
 const HEARTBEAT_INTERVAL = 30000; // 30 seconds
 const SCHEDULE_CHECK_INTERVAL = 10000; // Check schedule transition every 10 seconds
 const CLOCK_SYNC_INTERVAL = 3000; // Re-align player clock with global epoch every 3 seconds
-const DEVICE_TOKEN_KEY = 'signage_device_token';
 const SCREEN_ID_KEY = 'signage_screen_id';
 
 export default function PlayerPage() {
-  const [phase, setPhase] = useState<'activation' | 'loading' | 'playing'>('activation');
+  const [phase, setPhase] = useState<'selection' | 'loading' | 'playing'>('selection');
+  const [screensList, setScreensList] = useState<Screen[]>([]);
+  const [loadingScreens, setLoadingScreens] = useState(true);
+  const [searchScreen, setSearchScreen] = useState('');
+
   const [screenId, setScreenId] = useState<string | null>(null);
   const [screenName, setScreenName] = useState('');
-  const [activationCode, setActivationCode] = useState('');
-  const [activationError, setActivationError] = useState('');
-  const [activating, setActivating] = useState(false);
 
   // Player state
   const [activeScheduleId, setActiveScheduleId] = useState<string | null>(null);
@@ -51,7 +65,7 @@ export default function PlayerPage() {
     playlistRef.current = playlist;
   }, [playlist]);
 
-  // Auto-hide floating controls after inactivity & auto-unmute on user interaction if muted by browser
+  // Auto-hide floating controls after inactivity
   const handleUserActivity = () => {
     setShowControls(true);
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
@@ -59,7 +73,6 @@ export default function PlayerPage() {
       setShowControls(false);
     }, 4000);
 
-    // Auto-unmute on first user click/touch if browser blocked unmuted autoplay
     if (videoRef.current && videoRef.current.muted && !userExplicitlyMutedRef.current) {
       videoRef.current.muted = false;
       setIsMuted(false);
@@ -103,7 +116,7 @@ export default function PlayerPage() {
         setIsFullscreen(false);
       }
     } catch {
-      // Ignore fullscreen API denial
+      // Ignore API denial
     }
   };
 
@@ -129,52 +142,44 @@ export default function PlayerPage() {
     }
   };
 
-  // Reset & Unpair device from local player
-  const handleResetDevice = async () => {
-    if (!confirm('Reset koneksi perangkat ini? Layar akan kembali meminta Kode Aktivasi 6-digit.')) {
-      return;
-    }
-
-    if (screenId) {
-      const supabase = createClient();
-      await supabase
-        .from('screens')
-        .update({ device_token: null, status: 'inactive' })
-        .eq('id', screenId);
-    }
-
+  // Switch Screen action (Return to Screen Selection menu)
+  const handleSwitchScreen = () => {
     localStorage.removeItem(SCREEN_ID_KEY);
-    localStorage.removeItem(DEVICE_TOKEN_KEY);
     setScreenId(null);
     setPlaylist([]);
     setCurrentMedia(null);
     setActiveScheduleId(null);
-    setPhase('activation');
+    if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+    setPhase('selection');
+    fetchAvailableScreens();
   };
 
   // ============================================
-  // Check for existing device token on mount
+  // Initial Mount & Load Available Screens
   // ============================================
   useEffect(() => {
     const savedScreenId = localStorage.getItem(SCREEN_ID_KEY);
-    const savedToken = localStorage.getItem(DEVICE_TOKEN_KEY);
-
-    if (savedScreenId && savedToken) {
-      verifyToken(savedScreenId, savedToken);
+    if (savedScreenId) {
+      verifyAndPlayScreen(savedScreenId);
+    } else {
+      fetchAvailableScreens();
     }
   }, []);
 
-  const verifyToken = async (screenIdVal: string, token: string) => {
+  const fetchAvailableScreens = async () => {
+    setLoadingScreens(true);
+    const supabase = createClient();
+    const { data } = await supabase.from('screens').select('*').order('name', { ascending: true });
+    setScreensList(data || []);
+    setLoadingScreens(false);
+  };
+
+  const verifyAndPlayScreen = async (sid: string) => {
     setPhase('loading');
     const supabase = createClient();
+    const { data } = await supabase.from('screens').select('*').eq('id', sid).single();
 
-    const { data } = await supabase
-      .from('screens')
-      .select('*')
-      .eq('id', screenIdVal)
-      .single();
-
-    if (data && data.device_token === token) {
+    if (data) {
       setScreenId(data.id);
       setScreenName(data.name);
       await supabase
@@ -183,65 +188,26 @@ export default function PlayerPage() {
         .eq('id', data.id);
       loadScheduleAndPlay(data.id, true);
     } else {
-      // Device token has been reset by Admin in Dashboard! Force reset to activation screen.
       localStorage.removeItem(SCREEN_ID_KEY);
-      localStorage.removeItem(DEVICE_TOKEN_KEY);
       setScreenId(null);
-      setPhase('activation');
+      setPhase('selection');
+      fetchAvailableScreens();
     }
   };
 
-  // ============================================
-  // Activation
-  // ============================================
-  const handleActivate = async () => {
-    if (activationCode.length !== 6) {
-      setActivationError('Kode harus 6 digit');
-      return;
-    }
+  // Selection Handler
+  const handleSelectScreen = async (screen: Screen) => {
+    localStorage.setItem(SCREEN_ID_KEY, screen.id);
+    setScreenId(screen.id);
+    setScreenName(screen.name);
 
-    setActivating(true);
-    setActivationError('');
     const supabase = createClient();
-
-    const { data: activation } = await supabase
-      .from('screen_activations')
-      .select('*, screen:screens(*)')
-      .eq('activation_code', activationCode)
-      .is('used_at', null)
-      .gte('expires_at', new Date().toISOString())
-      .single();
-
-    if (!activation) {
-      setActivationError('Kode tidak valid atau sudah kedaluwarsa');
-      setActivating(false);
-      return;
-    }
-
-    const deviceToken = `dev_${Date.now()}_${Math.random().toString(36).slice(2)}`;
-
-    await supabase
-      .from('screen_activations')
-      .update({ used_at: new Date().toISOString() })
-      .eq('id', activation.id);
-
     await supabase
       .from('screens')
-      .update({
-        device_token: deviceToken,
-        status: 'online',
-        last_seen: new Date().toISOString(),
-      })
-      .eq('id', activation.screen_id);
+      .update({ status: 'online', last_seen: new Date().toISOString() })
+      .eq('id', screen.id);
 
-    localStorage.setItem(SCREEN_ID_KEY, activation.screen_id);
-    localStorage.setItem(DEVICE_TOKEN_KEY, deviceToken);
-
-    setScreenId(activation.screen_id);
-    setScreenName(activation.screen?.name || '');
-    setActivating(false);
-
-    loadScheduleAndPlay(activation.screen_id, true);
+    loadScheduleAndPlay(screen.id, true);
   };
 
   // ============================================
@@ -297,31 +263,11 @@ export default function PlayerPage() {
   }, []);
 
   // ============================================
-  // Load Schedule & Play (With Silent Transition)
+  // Load Schedule & Play
   // ============================================
   const loadScheduleAndPlay = async (sid: string, showLoading = false) => {
     if (showLoading) setPhase('loading');
     const supabase = createClient();
-
-    // 1. Verify device token validity in DB
-    const savedToken = localStorage.getItem(DEVICE_TOKEN_KEY);
-    const { data: currentScreen } = await supabase
-      .from('screens')
-      .select('device_token')
-      .eq('id', sid)
-      .single();
-
-    if (!currentScreen || currentScreen.device_token !== savedToken) {
-      // Admin clicked "Reset Koneksi" in Dashboard! Force reset to activation screen.
-      localStorage.removeItem(SCREEN_ID_KEY);
-      localStorage.removeItem(DEVICE_TOKEN_KEY);
-      setScreenId(null);
-      setActiveScheduleId(null);
-      setPlaylist([]);
-      setCurrentMedia(null);
-      setPhase('activation');
-      return;
-    }
 
     const now = new Date();
     const today = now.toISOString().split('T')[0];
@@ -369,7 +315,6 @@ export default function PlayerPage() {
       return;
     }
 
-    // Sort schedules: Prioritize 'promosi' mode over 'normal' mode, then by priority
     schedules.sort((a, b) => {
       if (a.mode === 'promosi' && b.mode !== 'promosi') return -1;
       if (a.mode !== 'promosi' && b.mode === 'promosi') return 1;
@@ -411,7 +356,7 @@ export default function PlayerPage() {
   // Periodic Clock Sync & Schedule Ticker
   // ============================================
   useEffect(() => {
-    if (!screenId || phase === 'activation') return;
+    if (!screenId || phase === 'selection') return;
 
     const scheduleTimer = setInterval(() => {
       loadScheduleAndPlay(screenId, false);
@@ -427,9 +372,7 @@ export default function PlayerPage() {
     };
   }, [screenId, phase, syncGlobalClock]);
 
-  // ============================================
-  // Background Preloading for Next Media
-  // ============================================
+  // Preloading next media
   useEffect(() => {
     if (playlist.length <= 1) return;
     const nextIndex = (currentIndex + 1) % playlist.length;
@@ -447,9 +390,7 @@ export default function PlayerPage() {
     }
   }, [currentIndex, playlist]);
 
-  // ============================================
-  // Playback Auto-play & Autoplay Policy Fallback
-  // ============================================
+  // Autoplay handler
   useEffect(() => {
     if (!currentMedia || phase !== 'playing') return;
 
@@ -473,7 +414,7 @@ export default function PlayerPage() {
             setIsMuted(true);
             await vid.play();
           } catch {
-            // Autoplay blocked completely
+            // Autoplay blocked
           }
         }
       };
@@ -482,9 +423,7 @@ export default function PlayerPage() {
     }
   }, [currentMedia, phase]);
 
-  // ============================================
   // Heartbeat
-  // ============================================
   const startHeartbeat = (sid: string, mediaId: string | null) => {
     if (heartbeatRef.current) clearInterval(heartbeatRef.current);
 
@@ -505,32 +444,12 @@ export default function PlayerPage() {
     heartbeatRef.current = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
   };
 
-  // ============================================
   // Realtime Listener
-  // ============================================
   const setupRealtimeListener = (sid: string) => {
     const supabase = createClient();
 
     supabase
       .channel('screen-device-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'screens', filter: `id=eq.${sid}` },
-        (payload) => {
-          const newScreen = payload.new as any;
-          const savedToken = localStorage.getItem(DEVICE_TOKEN_KEY);
-          if (!newScreen || newScreen.device_token !== savedToken) {
-            // Admin clicked "Reset Koneksi" in Dashboard! Instantly return to activation screen.
-            localStorage.removeItem(SCREEN_ID_KEY);
-            localStorage.removeItem(DEVICE_TOKEN_KEY);
-            setScreenId(null);
-            setActiveScheduleId(null);
-            setPlaylist([]);
-            setCurrentMedia(null);
-            setPhase('activation');
-          }
-        }
-      )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'schedules' },
@@ -548,14 +467,12 @@ export default function PlayerPage() {
       .subscribe();
   };
 
-  // Cleanup
   useEffect(() => {
     return () => {
       if (heartbeatRef.current) clearInterval(heartbeatRef.current);
     };
   }, []);
 
-  // Class for Object-Fit Aspect Ratio
   const fitClass =
     fitMode === 'cover'
       ? 'object-cover'
@@ -563,80 +480,118 @@ export default function PlayerPage() {
       ? 'object-fill'
       : 'object-contain';
 
+  // Filtered screens for selection menu
+  const filteredScreens = screensList.filter(
+    (s) =>
+      s.name.toLowerCase().includes(searchScreen.toLowerCase()) ||
+      s.site.toLowerCase().includes(searchScreen.toLowerCase()) ||
+      s.screen_code.toLowerCase().includes(searchScreen.toLowerCase())
+  );
+
   // ============================================
-  // RENDER: Corporate Clean Activation Screen
+  // RENDER: SCREEN SELECTION MENU (No Code Needed!)
   // ============================================
-  if (phase === 'activation') {
+  if (phase === 'selection') {
     return (
-      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-6 text-slate-900 font-sans">
-        <div className="w-full max-w-md space-y-6">
-          
-          {/* Logo Header */}
-          <div className="flex flex-col items-center text-center">
-            <div className="p-3 bg-white rounded-2xl border border-slate-200/80 shadow-2xs mb-3">
+      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-4 sm:p-6 text-slate-900 font-sans">
+        <div className="w-full max-w-3xl space-y-6">
+          {/* Logo & Header */}
+          <div className="flex flex-col items-center text-center space-y-2">
+            <div className="p-3 bg-white rounded-2xl border border-slate-200 shadow-2xs">
               <Logo />
             </div>
-            <p className="text-xs font-semibold text-slate-500 tracking-wide uppercase">
-              Web Player Signage
-            </p>
-          </div>
-
-          {/* Activation Card */}
-          <div className="bg-white rounded-2xl p-8 border border-slate-200 shadow-xl space-y-6">
-            <div className="text-center space-y-1">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-100 text-blue-600 flex items-center justify-center mx-auto mb-2">
-                <KeyRound className="w-5 h-5" />
-              </div>
-              <h2 className="text-base font-bold text-slate-900">Aktivasi Perangkat Layar</h2>
-              <p className="text-xs text-slate-500 font-normal max-w-xs mx-auto">
-                Masukkan 6 angka kode aktivasi dari Dashboard Admin (<code className="text-blue-600 font-semibold">/screens</code>)
+            <div className="space-y-0.5">
+              <h1 className="text-xl font-bold tracking-tight text-slate-900">
+                Pilih Perangkat Layar TV
+              </h1>
+              <p className="text-xs text-slate-500 font-normal">
+                Pilih nama layar TV di bawah ini untuk memulai penayangan Digital Signage pada perangkat ini.
               </p>
             </div>
+          </div>
 
-            <div className="space-y-4">
-              <input
-                type="text"
-                maxLength={6}
-                value={activationCode}
-                onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, '');
-                  setActivationCode(val);
-                  setActivationError('');
-                }}
-                placeholder="000000"
-                className="w-full text-center text-3xl tracking-[0.4em] font-mono font-bold bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 text-slate-900 placeholder-slate-300 focus:outline-none focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
-                autoFocus
-              />
+          {/* Search Input Bar */}
+          <div className="relative w-full max-w-md mx-auto">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              value={searchScreen}
+              onChange={(e) => setSearchScreen(e.target.value)}
+              placeholder="Cari nama layar, lokasi site, atau kode TV..."
+              className="w-full pl-10 pr-4 h-10 text-xs bg-white border border-slate-200 rounded-xl shadow-2xs focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all font-medium"
+            />
+          </div>
 
-              {activationError && (
-                <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-red-600 text-xs font-medium text-center">
-                  {activationError}
+          {/* Screens Grid Menu */}
+          {loadingScreens ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <Loader2 className="w-7 h-7 animate-spin text-blue-600" />
+              <p className="text-xs text-slate-500 font-medium">Memuat Daftar Layar Terdaftar...</p>
+            </div>
+          ) : filteredScreens.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center shadow-2xs space-y-3">
+              <Tv className="w-10 h-10 text-slate-300 mx-auto" />
+              <p className="text-sm font-bold text-slate-800">
+                {searchScreen
+                  ? 'Tidak ada layar yang cocok dengan pencarian'
+                  : 'Belum Ada Layar yang Ditambahkan Admin'}
+              </p>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                Silakan tambahkan perangkat layar baru pada Dashboard Admin (<code className="text-blue-600 font-semibold">/screens</code>) terlebih dahulu.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[55vh] overflow-y-auto pr-1">
+              {filteredScreens.map((screen) => (
+                <div
+                  key={screen.id}
+                  onClick={() => handleSelectScreen(screen)}
+                  className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-2xs hover:shadow-md hover:border-blue-400 transition-all cursor-pointer flex flex-col justify-between space-y-4 group"
+                >
+                  <div className="space-y-2">
+                    {/* Status Dot & Screen Code */}
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                        {screen.screen_code}
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/60">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        Siap Digunakan
+                      </span>
+                    </div>
+
+                    {/* Screen Title */}
+                    <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors leading-snug">
+                      {screen.name}
+                    </h3>
+
+                    {/* Location */}
+                    <div className="flex items-center gap-1.5 text-slate-500 text-xs">
+                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      <span>{screen.site}{screen.area ? ` — ${screen.area}` : ''}</span>
+                    </div>
+                  </div>
+
+                  {/* Select Action Button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSelectScreen(screen);
+                    }}
+                    className="w-full py-2 px-3 rounded-xl bg-slate-900 group-hover:bg-blue-600 text-white text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-1.5"
+                  >
+                    <Play className="w-3.5 h-3.5 fill-current" />
+                    <span>Pilih & Putar Layar</span>
+                  </button>
                 </div>
-              )}
-
-              <button
-                onClick={handleActivate}
-                disabled={activationCode.length !== 6 || activating}
-                className="w-full py-3 px-6 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs flex items-center justify-center gap-2"
-              >
-                {activating ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Menghubungkan Perangkat...</span>
-                  </>
-                ) : (
-                  <>
-                    <Tv className="w-4 h-4" />
-                    <span>Aktifkan Layar Ini</span>
-                  </>
-                )}
-              </button>
+              ))}
             </div>
+          )}
 
-            <div className="pt-2 border-t border-slate-100 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
-              <Sparkles className="w-3.5 h-3.5 text-blue-500" />
-              <span>Otomatis terhubung & tayang real-time</span>
-            </div>
+          {/* Footer Note */}
+          <div className="pt-2 flex items-center justify-center gap-1.5 text-[11px] text-slate-400">
+            <Sparkles className="w-3.5 h-3.5 text-blue-500" />
+            <span>Terhubung otomatis dengan jadwal tayang real-time</span>
           </div>
 
           <p className="text-[11px] text-center text-slate-400 font-normal">
@@ -655,7 +610,7 @@ export default function PlayerPage() {
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="text-center space-y-3">
           <Loader2 className="w-8 h-8 text-white animate-spin mx-auto" />
-          <p className="text-white/70 text-xs font-medium tracking-wide">Memuat Jadwal & Rotasi Media...</p>
+          <p className="text-white/70 text-xs font-medium tracking-wide">Memuat Rotasi Media Layar {screenName}...</p>
         </div>
       </div>
     );
@@ -667,20 +622,20 @@ export default function PlayerPage() {
   return (
     <div className="relative w-screen h-screen overflow-hidden bg-black select-none">
       
-      {/* ── FLOATING AUTO-HIDE PLAYER CONTROL BAR ── */}
+      {/* ── FLOATING CONTROLS OVERLAY ── */}
       <div
-        className={`fixed top-4 right-4 z-50 flex items-center gap-2 bg-slate-950/80 backdrop-blur-md border border-white/15 p-2 rounded-2xl text-white shadow-2xl transition-all duration-300 ${
+        className={`fixed top-4 right-4 z-50 flex items-center gap-2 bg-slate-950/85 backdrop-blur-md border border-white/15 p-2 rounded-2xl text-white shadow-2xl transition-all duration-300 ${
           showControls ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 -translate-y-2 pointer-events-none'
         }`}
       >
-        {/* Reset Device Button */}
+        {/* Switch Screen Menu Button */}
         <button
-          onClick={handleResetDevice}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 text-xs font-bold border border-red-500/30 transition-all active:scale-95"
-          title="Reset Koneksi Perangkat Ini"
+          onClick={handleSwitchScreen}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600/80 hover:bg-blue-600 text-white text-xs font-bold border border-blue-400/40 transition-all active:scale-95 shadow-2xs"
+          title="Kembali ke Menu Pilihan Layar TV"
         >
-          <LogOut className="w-3.5 h-3.5 text-red-400" />
-          <span className="hidden sm:inline">Reset Perangkat</span>
+          <RotateCcw className="w-3.5 h-3.5 text-white" />
+          <span className="hidden sm:inline">Ganti Layar</span>
         </button>
 
         {/* Fullscreen Button */}
@@ -702,17 +657,17 @@ export default function PlayerPage() {
           )}
         </button>
 
-        {/* Aspect Ratio Mode Cycle Button */}
+        {/* Aspect Ratio Mode */}
         <button
           onClick={cycleFitMode}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-all active:scale-95"
           title="Ubah Aspek Rasio (Fit / Cover / Fill)"
         >
           <Expand className="w-3.5 h-3.5 text-amber-400" />
-          <span className="capitalize">{fitMode === 'contain' ? 'Fit (Proporsional)' : fitMode === 'cover' ? 'Penuhi Layar (Cover)' : 'Stretch (Fill)'}</span>
+          <span className="capitalize">{fitMode === 'contain' ? 'Fit' : fitMode === 'cover' ? 'Cover' : 'Fill'}</span>
         </button>
 
-        {/* Audio Sound Mute/Unmute Toggle Button */}
+        {/* Audio Mute/Unmute */}
         <button
           onClick={toggleMute}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 ${
@@ -720,7 +675,7 @@ export default function PlayerPage() {
               ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30'
               : 'bg-white/10 text-white hover:bg-white/20'
           }`}
-          title={isMuted ? 'Nyalakan Suara (Unmute)' : 'Matikan Suara (Mute)'}
+          title={isMuted ? 'Nyalakan Suara' : 'Matikan Suara'}
         >
           {isMuted ? (
             <>
@@ -738,7 +693,6 @@ export default function PlayerPage() {
 
       {/* ── MEDIA PLAYBACK CONTENT ── */}
       {playlist.length === 0 || !currentMedia ? (
-        // No content — Corporate standby screen
         <div className="w-full h-full flex items-center justify-center bg-slate-950 text-white p-6">
           <div className="text-center space-y-3 max-w-sm">
             <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/10 flex items-center justify-center mx-auto">
