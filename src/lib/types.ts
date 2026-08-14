@@ -89,6 +89,8 @@ export interface Schedule {
   end_date: string;
   start_time: string;
   end_time: string;
+  loop_count?: number;
+  start_times?: string[];
   status: ScheduleStatus;
   created_by: string;
   created_at: string;

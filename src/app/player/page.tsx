@@ -298,10 +298,7 @@ export default function PlayerPage() {
       .in('id', scheduleIds)
       .eq('status', 'active')
       .lte('start_date', today)
-      .gte('end_date', today)
-      .lte('start_time', currentTime)
-      .gte('end_time', currentTime)
-      .order('priority', { ascending: false });
+      .gte('end_date', today);
 
     if (!schedules || schedules.length === 0) {
       if (activeScheduleIdRef.current !== null || playlist.length > 0) {
@@ -315,24 +312,76 @@ export default function PlayerPage() {
       return;
     }
 
-    schedules.sort((a, b) => {
+    // Helper to convert HH:MM to seconds from midnight
+    const timeToSec = (tStr: string) => {
+      const [h, m] = (tStr || '08:00').split(':').map(Number);
+      return h * 3600 + m * 60;
+    };
+
+    const [nowH, nowM] = currentTime.split(':').map(Number);
+    const nowSec = nowH * 3600 + nowM * 60;
+
+    // Filter schedules that match current time slot
+    const matchingSchedules: any[] = [];
+
+    for (const sched of schedules) {
+      const times: string[] = sched.start_times && Array.isArray(sched.start_times) && sched.start_times.length > 0
+        ? sched.start_times
+        : [sched.start_time || '08:00'];
+      
+      const loopCnt = sched.loop_count ?? 3;
+
+      // Get playlist duration for this schedule
+      const { data: items } = await supabase
+        .from('playlist_items')
+        .select('*, media(*)')
+        .eq('playlist_id', sched.playlist_id);
+
+      let playlistDurSec = 0;
+      (items || []).forEach((it: any) => {
+        playlistDurSec += (it.media?.duration || 10) * (it.play_limit || 1);
+      });
+
+      const sessionDurSec = loopCnt === 0 ? 86400 : (playlistDurSec || 60) * loopCnt;
+
+      // Check if nowSec falls within any start time slot
+      const isSlotActive = times.some((tStr) => {
+        const slotStartSec = timeToSec(tStr);
+        const slotEndSec = slotStartSec + sessionDurSec;
+        return nowSec >= slotStartSec && (loopCnt === 0 || nowSec < slotEndSec);
+      });
+
+      if (isSlotActive) {
+        matchingSchedules.push({ ...sched, items });
+      }
+    }
+
+    if (matchingSchedules.length === 0) {
+      if (activeScheduleIdRef.current !== null || playlist.length > 0) {
+        setPlaylist([]);
+        setCurrentMedia(null);
+        setActiveScheduleId(null);
+      }
+      setPhase('playing');
+      startHeartbeat(sid, null);
+      setupRealtimeListener(sid);
+      return;
+    }
+
+    matchingSchedules.sort((a, b) => {
       if (a.mode === 'promosi' && b.mode !== 'promosi') return -1;
       if (a.mode !== 'promosi' && b.mode === 'promosi') return 1;
       return (b.priority || 0) - (a.priority || 0);
     });
 
-    const activeSchedule = schedules[0];
+    const activeSchedule = matchingSchedules[0];
 
     if (activeSchedule.id === activeScheduleIdRef.current && playlist.length > 0) {
       setPhase('playing');
       return;
     }
 
-    const { data: items } = await supabase
-      .from('playlist_items')
-      .select('*, media(*)')
-      .eq('playlist_id', activeSchedule.playlist_id)
-      .order('sort_order', { ascending: true });
+    const items = activeSchedule.items || [];
 
     if (items && items.length > 0) {
       setActiveScheduleId(activeSchedule.id);
