@@ -124,11 +124,11 @@ export function exportLogsToCSV(logs: ExportLogItem[], filenamePrefix = 'Log-Akt
 }
 
 /**
- * Export activity logs as clean professional PDF report
+ * Export activity logs as clean professional PDF report (Modern Clean White Background)
  */
 export function exportLogsToPDF(
   logs: ExportLogItem[],
-  activeFilter = 'Semua',
+  activeFilter: string | string[] = 'Semua Tindakan',
   filenamePrefix = 'Laporan-Log-Aktivitas'
 ) {
   const doc = new jsPDF({
@@ -146,53 +146,89 @@ export function exportLogsToPDF(
     minute: '2-digit',
   });
 
-  // Top Accent Strip
-  doc.setFillColor(37, 99, 235); // blue-600
-  doc.rect(0, 0, 297, 3, 'F');
+  const activeFilterText = Array.isArray(activeFilter)
+    ? activeFilter.length === 0
+      ? 'Semua Tindakan'
+      : activeFilter.join(', ')
+    : activeFilter || 'Semua Tindakan';
 
-  // Header Banner Background
-  doc.setFillColor(15, 23, 42); // slate-900
-  doc.rect(0, 3, 297, 23, 'F');
+  // Helper to draw clean header & top accent strip on each page
+  const drawPageHeader = () => {
+    // Top Accent Strip (Blue-600)
+    doc.setFillColor(37, 99, 235);
+    doc.rect(0, 0, 297, 2, 'F');
 
-  // Brand & Title Text
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(13);
-  doc.setFont('helvetica', 'bold');
-  doc.text('PT ROLAS MEDIKA — DIGITAL SIGNAGE CMS', 14, 12);
+    // Brand Title (Dark Slate on White)
+    doc.setTextColor(15, 23, 42); // slate-900
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.text('PT ROLAS MEDIKA — DIGITAL SIGNAGE CMS', 14, 10);
 
-  doc.setFontSize(9.5);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(203, 213, 225); // slate-300
-  doc.text('Laporan Resmi Audit Log Aktivitas & Riwayat Tindakan Sistem', 14, 18.5);
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100, 116, 139); // slate-500
+    doc.text('Laporan Resmi Audit Log Aktivitas & Riwayat Tindakan Sistem', 14, 15);
 
-  // Metadata Executive Summary Card
+    // Right Header Tag
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(37, 99, 235); // blue-600
+    doc.text('AUDIT LOG SYSTEM REPORT', 283, 10, { align: 'right' });
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(148, 163, 184); // slate-400
+    doc.text(`Waktu Cetak: ${dateStr} WIB`, 283, 15, { align: 'right' });
+  };
+
+  // Draw Header on First Page
+  drawPageHeader();
+
+  // Executive Metadata Summary Card (Y: 19 to Y: 35)
+  // Background card (slate-50) with subtle slate-200 border
   doc.setFillColor(248, 250, 252); // slate-50
   doc.setDrawColor(226, 232, 240); // slate-200
   doc.setLineWidth(0.3);
-  doc.roundedRect(14, 29, 269, 13, 1.5, 1.5, 'FD');
+  doc.roundedRect(14, 19, 269, 16, 1.5, 1.5, 'FD');
 
+  // Blue Accent Strip on Left Side of Card
+  doc.setFillColor(37, 99, 235);
+  doc.rect(14, 19, 2.5, 16, 'F');
+
+  // Summary Row 1
+  doc.setTextColor(71, 85, 105); // slate-600
+  doc.setFontSize(8);
+  
+  doc.setFont('helvetica', 'bold');
+  doc.text('WAKTU CETAK:', 19, 24.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${dateStr} WIB`, 43, 24.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('TOTAL LOG:', 115, 24.5);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`${logs.length} Catatan Aktivitas`, 135, 24.5);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('STATUS BEKAS:', 205, 24.5);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(16, 185, 129); // emerald-600
+  doc.text('TERVERIFIKASI (INTERNAL)', 230, 24.5);
+
+  // Summary Row 2: Filter Info
   doc.setTextColor(71, 85, 105);
-  doc.setFontSize(8.5);
   doc.setFont('helvetica', 'bold');
-  doc.text('WAKTU CETAK:', 18, 35);
+  doc.text('FILTER AKTIF:', 19, 30.5);
   doc.setFont('helvetica', 'normal');
-  doc.text(`${dateStr} WIB`, 43, 35);
 
-  doc.setFont('helvetica', 'bold');
-  doc.text('TOTAL AUDIT LOG:', 115, 35);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`${logs.length} Catatan`, 147, 35);
-
-  doc.setFont('helvetica', 'bold');
-  doc.text('FILTER AKTIF:', 200, 35);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`${activeFilter}`, 225, 35);
-
-  doc.setFont('helvetica', 'bold');
-  doc.text('STATUS DOKUMEN:', 18, 39.5);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(220, 38, 38); // red-600
-  doc.text('INTERNAL ROLAS MEDIKA (TERVERIFIKASI)', 48, 39.5);
+  // Truncate filter text if it exceeds card width
+  const maxFilterWidth = 230;
+  let formattedFilter = activeFilterText;
+  if (doc.getTextWidth(formattedFilter) > maxFilterWidth) {
+    while (doc.getTextWidth(formattedFilter + '...') > maxFilterWidth && formattedFilter.length > 0) {
+      formattedFilter = formattedFilter.slice(0, -1);
+    }
+    formattedFilter += '...';
+  }
+  doc.text(formattedFilter, 43, 30.5);
 
   // Table Columns & Data Mapping
   const tableColumns = ['#', 'Tindakan', 'Rincian Aktivitas', 'Operator', 'Koneksi / Perangkat', 'Waktu (WIB)'];
@@ -214,28 +250,32 @@ export function exportLogsToPDF(
     ];
   });
 
-  // Render Table using autoTable
+  // Render Table using autoTable with Clean White Theme
   autoTable(doc, {
     head: [tableColumns],
     body: tableRows,
-    startY: 45,
+    startY: 38,
     theme: 'grid',
     headStyles: {
-      fillColor: [30, 41, 59], // slate-800
-      textColor: [255, 255, 255],
+      fillColor: [241, 245, 249], // slate-100
+      textColor: [15, 23, 42], // slate-900
       fontSize: 8.5,
       fontStyle: 'bold',
       halign: 'left',
       cellPadding: 3,
+      lineColor: [203, 213, 225],
+      lineWidth: 0.2,
     },
     bodyStyles: {
       fontSize: 8,
-      textColor: [30, 41, 59],
+      textColor: [51, 65, 85], // slate-700
+      fillColor: [255, 255, 255], // pure white
       cellPadding: 2.5,
       lineColor: [226, 232, 240],
+      lineWidth: 0.15,
     },
     alternateRowStyles: {
-      fillColor: [248, 250, 252], // slate-50
+      fillColor: [248, 250, 252], // slate-50 subtle alternate
     },
     columnStyles: {
       0: { cellWidth: 10, halign: 'center' }, // #
@@ -247,12 +287,17 @@ export function exportLogsToPDF(
     },
     margin: { left: 14, right: 14, bottom: 16 },
     didDrawPage: (data) => {
+      // Re-draw header strip for subsequent pages
+      if (data.pageNumber > 1) {
+        drawPageHeader();
+      }
+
       // Footer Page Counter & Disclaimer
       const pageCount = (doc as any).internal.getNumberOfPages();
       const pageHeight = doc.internal.pageSize.height || 210;
 
       doc.setDrawColor(226, 232, 240);
-      doc.line(14, pageHeight - 12, 297 - 14, pageHeight - 12);
+      doc.line(14, pageHeight - 10, 283, pageHeight - 10);
 
       doc.setFontSize(7.5);
       doc.setFont('helvetica', 'normal');
@@ -261,12 +306,12 @@ export function exportLogsToPDF(
       doc.text(
         `Digital Signage CMS — PT Rolas Medika | Berkas Resmi Sistem`,
         14,
-        pageHeight - 6
+        pageHeight - 5
       );
       doc.text(
         `Halaman ${data.pageNumber} dari ${pageCount}`,
-        297 - 14,
-        pageHeight - 6,
+        283,
+        pageHeight - 5,
         { align: 'right' }
       );
     },
