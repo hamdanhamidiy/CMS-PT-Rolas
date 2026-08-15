@@ -179,44 +179,41 @@ export function exportLogsToPDF(
     doc.text(`Waktu Cetak: ${dateStr} WIB`, 283, 15, { align: 'right' });
   };
 
-  // Draw Header on First Page
-  drawPageHeader();
-
-  // Executive Metadata Summary Card (Y: 19 to Y: 35)
+  // Executive Metadata Summary Card on Page 1 (Y: 19 to Y: 35)
   // Background card (slate-50) with subtle slate-200 border
   doc.setFillColor(248, 250, 252); // slate-50
   doc.setDrawColor(226, 232, 240); // slate-200
   doc.setLineWidth(0.3);
-  doc.roundedRect(14, 19, 269, 16, 1.5, 1.5, 'FD');
+  doc.roundedRect(14, 19, 269, 15, 1.5, 1.5, 'FD');
 
   // Blue Accent Strip on Left Side of Card
   doc.setFillColor(37, 99, 235);
-  doc.rect(14, 19, 2.5, 16, 'F');
+  doc.rect(14, 19, 2.5, 15, 'F');
 
   // Summary Row 1
   doc.setTextColor(71, 85, 105); // slate-600
   doc.setFontSize(8);
   
   doc.setFont('helvetica', 'bold');
-  doc.text('WAKTU CETAK:', 19, 24.5);
+  doc.text('WAKTU CETAK:', 19, 24);
   doc.setFont('helvetica', 'normal');
-  doc.text(`${dateStr} WIB`, 43, 24.5);
+  doc.text(`${dateStr} WIB`, 43, 24);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('TOTAL LOG:', 115, 24.5);
+  doc.text('TOTAL LOG:', 115, 24);
   doc.setFont('helvetica', 'normal');
-  doc.text(`${logs.length} Catatan Aktivitas`, 135, 24.5);
+  doc.text(`${logs.length} Catatan Aktivitas`, 135, 24);
 
   doc.setFont('helvetica', 'bold');
-  doc.text('STATUS BEKAS:', 205, 24.5);
+  doc.text('STATUS BEKAS:', 205, 24);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(16, 185, 129); // emerald-600
-  doc.text('TERVERIFIKASI (INTERNAL)', 230, 24.5);
+  doc.text('TERVERIFIKASI (INTERNAL)', 230, 24);
 
   // Summary Row 2: Filter Info
   doc.setTextColor(71, 85, 105);
   doc.setFont('helvetica', 'bold');
-  doc.text('FILTER AKTIF:', 19, 30.5);
+  doc.text('FILTER AKTIF:', 19, 29.5);
   doc.setFont('helvetica', 'normal');
 
   // Truncate filter text if it exceeds card width
@@ -228,7 +225,7 @@ export function exportLogsToPDF(
     }
     formattedFilter += '...';
   }
-  doc.text(formattedFilter, 43, 30.5);
+  doc.text(formattedFilter, 43, 29.5);
 
   // Table Columns & Data Mapping
   const tableColumns = ['#', 'Tindakan', 'Rincian Aktivitas', 'Operator', 'Koneksi / Perangkat', 'Waktu (WIB)'];
@@ -254,7 +251,7 @@ export function exportLogsToPDF(
   autoTable(doc, {
     head: [tableColumns],
     body: tableRows,
-    startY: 38,
+    startY: 37,
     theme: 'grid',
     headStyles: {
       fillColor: [241, 245, 249], // slate-100
@@ -285,12 +282,10 @@ export function exportLogsToPDF(
       4: { cellWidth: 42 }, // Perangkat / IP
       5: { cellWidth: 29, halign: 'right' }, // Waktu
     },
-    margin: { left: 14, right: 14, bottom: 16 },
+    margin: { top: 22, left: 14, right: 14, bottom: 16 },
     didDrawPage: (data) => {
-      // Re-draw header strip for subsequent pages
-      if (data.pageNumber > 1) {
-        drawPageHeader();
-      }
+      // Always draw clean page header & top accent strip on every page
+      drawPageHeader();
 
       // Footer Page Counter & Disclaimer
       const pageCount = (doc as any).internal.getNumberOfPages();
