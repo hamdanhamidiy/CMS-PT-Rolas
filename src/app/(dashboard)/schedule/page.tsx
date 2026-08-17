@@ -187,6 +187,23 @@ export default function SchedulePage() {
     setEditStartTimes(editStartTimes.filter((t) => t !== timeVal));
   };
 
+  const toggleEditScreen = (screenId: string) => {
+    if (editSelectedScreens.includes(screenId)) {
+      setEditSelectedScreens(editSelectedScreens.filter((id) => id !== screenId));
+    } else {
+      setEditSelectedScreens([...editSelectedScreens, screenId]);
+    }
+  };
+
+  const selectAllEditScreens = () => {
+    if (editSelectedScreens.length === screens.length) {
+      setEditSelectedScreens([]);
+    } else {
+      setEditSelectedScreens(screens.map((s) => s.id));
+    }
+  };
+
+
   const handleSaveEdit = async () => {
     if (!editingSchedule || !editName.trim() || !editPlaylistId || editStartTimes.length === 0) {
       toast.error('Lengkapi formulir edit jadwal');
@@ -662,8 +679,58 @@ export default function SchedulePage() {
                   </div>
                 </div>
               </div>
+
+              {/* Target Perangkat Layar TV */}
+              <div className="space-y-3 pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Tv className="w-3.5 h-3.5 text-blue-600" /> Target Perangkat Layar TV ({editSelectedScreens.length}/{screens.length} Layar) *
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={selectAllEditScreens}
+                    className="text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 transition-colors"
+                  >
+                    {editSelectedScreens.length === screens.length ? 'Batalkan Semua' : 'Pilih Semua Layar'}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-48 overflow-y-auto pr-1">
+                  {screens.map((screen) => {
+                    const isSelected = editSelectedScreens.includes(screen.id);
+                    return (
+                      <div
+                        key={screen.id}
+                        onClick={() => toggleEditScreen(screen.id)}
+                        className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                          isSelected
+                            ? 'bg-blue-50/80 border-blue-300 text-blue-950 shadow-2xs'
+                            : 'bg-slate-50/50 border-slate-200/80 text-slate-700 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className={`w-4 h-4 rounded-md flex items-center justify-center border shrink-0 ${
+                            isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 bg-white'
+                          }`}>
+                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-xs truncate text-slate-900">{screen.name}</p>
+                            <p className="text-[10px] text-slate-500 truncate">{screen.site} ({screen.screen_code})</p>
+                          </div>
+                        </div>
+
+                        <div className={`w-2 h-2 rounded-full shrink-0 ${
+                          screen.status === 'online' ? 'bg-emerald-500' : 'bg-slate-300'
+                        }`} />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           )}
+
 
           <DialogFooter className="gap-2 border-t border-slate-100 pt-3">
             <button
