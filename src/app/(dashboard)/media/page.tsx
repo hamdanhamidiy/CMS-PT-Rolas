@@ -278,11 +278,11 @@ export default function MediaPage() {
                   </span>
                 )}
 
-                {/* Hover Preview Overlay Button */}
-                <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center z-20">
-                  <div className="px-3.5 py-1.5 rounded-lg bg-white/90 backdrop-blur-xs text-slate-900 text-xs font-bold shadow-md hover:bg-white transition-all flex items-center gap-1.5 pointer-events-none">
-                    <Eye className="w-3.5 h-3.5 text-blue-600" />
-                    Putar & Popup
+                {/* Hover Overlay Badge */}
+                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center z-20">
+                  <div className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-[11px] font-semibold border border-white/20 shadow-md flex items-center gap-1.5 pointer-events-none">
+                    <Play className="w-3 h-3 fill-current text-blue-400" />
+                    <span>Putar</span>
                   </div>
                 </div>
               </div>
