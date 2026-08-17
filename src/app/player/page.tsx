@@ -15,7 +15,6 @@ import {
   VolumeX,
   Search,
   MapPin,
-  CheckCircle2,
   Play,
   RotateCcw,
 } from 'lucide-react';
@@ -220,7 +219,8 @@ export default function PlayerPage() {
     let totalLoopSec = 0;
     const itemDurations = currentList.map((item) => {
       const dur = item.media?.duration || 10;
-      const limit = item.play_limit || 1;
+      // If play_limit === 0 (Kontinu), count as 1 unit in playlist loop calculations
+      const limit = item.play_limit === 0 ? 1 : (item.play_limit || 1);
       const totalItemSec = dur * limit;
       totalLoopSec += totalItemSec;
       return { dur, limit, totalItemSec };
@@ -256,7 +256,7 @@ export default function PlayerPage() {
 
     if (targetMedia.media_type === 'video' && videoRef.current) {
       const vid = videoRef.current;
-      if (Math.abs(vid.currentTime - offsetInMedia) > 0.5) {
+      if (Math.abs(vid.currentTime - offsetInMedia) > 1.0) {
         vid.currentTime = offsetInMedia;
       }
     }
@@ -286,7 +286,6 @@ export default function PlayerPage() {
       }
       setPhase('playing');
       startHeartbeat(sid, null);
-      setupRealtimeListener(sid);
       return;
     }
 
@@ -308,14 +307,13 @@ export default function PlayerPage() {
       }
       setPhase('playing');
       startHeartbeat(sid, null);
-      setupRealtimeListener(sid);
       return;
     }
 
     // Helper to convert HH:MM to seconds from midnight
     const timeToSec = (tStr: string) => {
-      const [h, m] = (tStr || '08:00').split(':').map(Number);
-      return h * 3600 + m * 60;
+      const parts = (tStr || '08:00').split(':').map(Number);
+      return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60;
     };
 
     const [nowH, nowM] = currentTime.split(':').map(Number);
@@ -328,33 +326,39 @@ export default function PlayerPage() {
       const times: string[] = sched.start_times && Array.isArray(sched.start_times) && sched.start_times.length > 0
         ? sched.start_times
         : [sched.start_time || '08:00'];
-      
-      const { data: playlistData } = await supabase
-        .from('playlists')
-        .select('loop_count')
-        .eq('id', sched.playlist_id)
-        .single();
-      
-      const loopCnt = playlistData?.loop_count ?? sched.loop_count ?? 3;
 
-      // Get playlist duration for this schedule
       const { data: items } = await supabase
         .from('playlist_items')
         .select('*, media(*)')
-        .eq('playlist_id', sched.playlist_id);
+        .eq('playlist_id', sched.playlist_id)
+        .order('sort_order', { ascending: true });
 
-      let playlistDurSec = 0;
+      // Calculate playlist total duration & Kontinu mode
+      let isPlaylistContinuous = false;
+      let playlistTotalSec = 0;
+
       (items || []).forEach((it: any) => {
-        playlistDurSec += (it.media?.duration || 10) * (it.play_limit || 1);
+        const dur = it.media?.duration || 10;
+        if (it.play_limit === 0) {
+          isPlaylistContinuous = true;
+        }
+        const limit = it.play_limit === 0 ? 1 : (it.play_limit || 1);
+        playlistTotalSec += dur * limit;
       });
 
-      const sessionDurSec = loopCnt === 0 ? 86400 : (playlistDurSec || 60) * loopCnt;
-
-      // Check if nowSec falls within any start time slot
+      // Check if current time falls within active schedule slot
       const isSlotActive = times.some((tStr) => {
         const slotStartSec = timeToSec(tStr);
-        const slotEndSec = slotStartSec + sessionDurSec;
-        return nowSec >= slotStartSec && (loopCnt === 0 || nowSec < slotEndSec);
+        const slotEndSec = isPlaylistContinuous
+          ? (sched.end_time && sched.end_time !== '23:59' && sched.end_time !== '23:59:00' ? timeToSec(sched.end_time) : slotStartSec + 86400)
+          : slotStartSec + (playlistTotalSec || 60);
+
+        if (slotStartSec <= slotEndSec) {
+          return nowSec >= slotStartSec && nowSec < slotEndSec;
+        } else {
+          // Overnight schedule
+          return nowSec >= slotStartSec || nowSec < slotEndSec;
+        }
       });
 
       if (isSlotActive) {
@@ -370,7 +374,6 @@ export default function PlayerPage() {
       }
       setPhase('playing');
       startHeartbeat(sid, null);
-      setupRealtimeListener(sid);
       return;
     }
 
@@ -382,12 +385,12 @@ export default function PlayerPage() {
 
     const activeSchedule = matchingSchedules[0];
 
+    const items = activeSchedule.items || [];
+
     if (activeSchedule.id === activeScheduleIdRef.current && playlist.length > 0) {
       setPhase('playing');
       return;
     }
-
-    const items = activeSchedule.items || [];
 
     if (items && items.length > 0) {
       setActiveScheduleId(activeSchedule.id);
@@ -404,8 +407,53 @@ export default function PlayerPage() {
 
     setPhase('playing');
     startHeartbeat(sid, items?.[0]?.media?.id || null);
-    setupRealtimeListener(sid);
   };
+
+  // ============================================
+  // Supabase Realtime Listener (Managed ONCE per screen)
+  // ============================================
+  useEffect(() => {
+    if (!screenId || phase === 'selection') return;
+
+    const supabase = createClient();
+    const channelName = `screen-device-changes-${screenId}`;
+
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'schedules' },
+        () => {
+          loadScheduleAndPlay(screenId, false);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'schedule_screens' },
+        () => {
+          loadScheduleAndPlay(screenId, false);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'playlists' },
+        () => {
+          loadScheduleAndPlay(screenId, false);
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'playlist_items' },
+        () => {
+          loadScheduleAndPlay(screenId, false);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [screenId, phase]);
 
   // ============================================
   // Periodic Clock Sync & Schedule Ticker
@@ -499,29 +547,6 @@ export default function PlayerPage() {
     heartbeatRef.current = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
   };
 
-  // Realtime Listener
-  const setupRealtimeListener = (sid: string) => {
-    const supabase = createClient();
-
-    supabase
-      .channel('screen-device-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'schedules' },
-        () => {
-          loadScheduleAndPlay(sid, false);
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'schedule_screens' },
-        () => {
-          loadScheduleAndPlay(sid, false);
-        }
-      )
-      .subscribe();
-  };
-
   useEffect(() => {
     return () => {
       if (heartbeatRef.current) clearInterval(heartbeatRef.current);
@@ -544,7 +569,7 @@ export default function PlayerPage() {
   );
 
   // ============================================
-  // RENDER: SCREEN SELECTION MENU (No Code Needed!)
+  // RENDER: SCREEN SELECTION MENU
   // ============================================
   if (phase === 'selection') {
     return (
@@ -768,7 +793,7 @@ export default function PlayerPage() {
           ref={videoRef}
           src={currentMedia.file_url}
           autoPlay
-          loop={playlist.length === 1}
+          loop={playlist.length === 1 || playlist[currentIndex]?.play_limit === 0}
           playsInline
           controls={false}
           preload="auto"

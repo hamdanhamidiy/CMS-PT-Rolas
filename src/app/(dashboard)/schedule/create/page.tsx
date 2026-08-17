@@ -22,7 +22,7 @@ import {
 import Link from 'next/link';
 import type { Playlist, Screen } from '@/lib/types';
 import { toast } from 'sonner';
-import { ensureUserProfile, logActivity } from '@/lib/utils';
+import { ensureUserProfile, formatDuration, logActivity } from '@/lib/utils';
 
 export default function CreateSchedulePage() {
   const router = useRouter();
@@ -71,7 +71,7 @@ export default function CreateSchedulePage() {
   const loadData = async () => {
     const supabase = createClient();
     const [playlistRes, screenRes] = await Promise.all([
-      supabase.from('playlists').select('*').in('status', ['draft', 'active']).order('name'),
+      supabase.from('playlists').select('*, playlist_items(play_limit, media(duration))').in('status', ['draft', 'active']).order('name'),
       supabase.from('screens').select('*').order('name'),
     ]);
     const plList = playlistRes.data || [];
@@ -322,11 +322,28 @@ export default function CreateSchedulePage() {
                   required
                 >
                   <option value="" disabled>Pilih Playlist...</option>
-                  {playlists.map((pl) => (
-                    <option key={pl.id} value={pl.id}>
-                      {pl.name} (Perulangan: {pl.loop_count === 0 ? 'Kontinu' : `${pl.loop_count ?? 3}x`})
-                    </option>
-                  ))}
+                  {playlists.map((pl) => {
+                    const items = (pl as any).playlist_items || [];
+                    let isContinuous = false;
+                    let totalSec = 0;
+                    (items || []).forEach((it: any) => {
+                      if (it.play_limit === 0) isContinuous = true;
+                      const dur = it.media?.duration || 10;
+                      const limit = it.play_limit === 0 ? 1 : (it.play_limit || 1);
+                      totalSec += dur * limit;
+                    });
+                    const durLabel = isContinuous
+                      ? 'Kontinu'
+                      : totalSec > 0
+                      ? `Durasi ${formatDuration(totalSec)}`
+                      : 'Rotasi Sesi';
+
+                    return (
+                      <option key={pl.id} value={pl.id}>
+                        {pl.name} ({items.length} Media • {durLabel})
+                      </option>
+                    );
+                  })}
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>

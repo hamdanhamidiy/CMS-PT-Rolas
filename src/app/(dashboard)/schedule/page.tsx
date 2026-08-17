@@ -7,7 +7,9 @@ import { Label } from '@/components/ui/label';
 import {
   Dialog,
   DialogContent,
+  DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
@@ -40,10 +42,11 @@ import {
   Moon,
   Check,
   X,
+  FileText,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Schedule, Playlist, Screen } from '@/lib/types';
-import { formatDate, logActivity } from '@/lib/utils';
+import { formatDate, formatDuration, logActivity } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function SchedulePage() {
@@ -78,6 +81,7 @@ export default function SchedulePage() {
   const [editCustomTime, setEditCustomTime] = useState('10:00');
   const [editStatus, setEditStatus] = useState<'draft' | 'active' | 'cancelled'>('draft');
   const [editSelectedScreens, setEditSelectedScreens] = useState<string[]>([]);
+  const [editScreenSearch, setEditScreenSearch] = useState('');
   const [savingEdit, setSavingEdit] = useState(false);
 
   // Delete Dialog State
@@ -93,9 +97,9 @@ export default function SchedulePage() {
     const [schedRes, playRes, screenRes] = await Promise.all([
       supabase
         .from('schedules')
-        .select('*, playlist:playlists(name, loop_count), schedule_screens(screen_id)')
+        .select('*, playlist:playlists(id, name, playlist_items(play_limit, media(duration))), schedule_screens(screen_id)')
         .order('created_at', { ascending: false }),
-      supabase.from('playlists').select('*').order('name'),
+      supabase.from('playlists').select('*, playlist_items(play_limit, media(duration))').order('name'),
       supabase.from('screens').select('*').order('name'),
     ]);
 
@@ -138,14 +142,16 @@ export default function SchedulePage() {
     setEditStartDate(schedule.start_date);
     setEditEndDate(schedule.end_date);
 
-    const times = schedule.start_times && Array.isArray(schedule.start_times) && schedule.start_times.length > 0
+    const rawTimes = schedule.start_times && Array.isArray(schedule.start_times) && schedule.start_times.length > 0
       ? schedule.start_times
       : [schedule.start_time || '08:00'];
-    setEditStartTimes(times);
+    const uniqueTimes = Array.from(new Set(rawTimes)).sort();
+    setEditStartTimes(uniqueTimes);
     setEditStatus(schedule.status as any);
 
     const assignedScreenIds = (schedule as any).schedule_screens?.map((ss: any) => ss.screen_id) || [];
     setEditSelectedScreens(assignedScreenIds);
+    setEditScreenSearch('');
   };
 
   const handleEditPresetTimeChange = (key: 'pagi' | 'siang' | 'malam', newTime: string) => {
@@ -153,7 +159,7 @@ export default function SchedulePage() {
     setEditPresetTimes((prev) => ({ ...prev, [key]: newTime }));
 
     if (editStartTimes.includes(oldTime)) {
-      const updated = editStartTimes.map((t) => (t === oldTime ? newTime : t)).sort();
+      const updated = Array.from(new Set(editStartTimes.map((t) => (t === oldTime ? newTime : t)))).sort();
       setEditStartTimes(updated);
     }
   };
@@ -166,7 +172,7 @@ export default function SchedulePage() {
       }
       setEditStartTimes(editStartTimes.filter((t) => t !== timeVal));
     } else {
-      setEditStartTimes([...editStartTimes, timeVal].sort());
+      setEditStartTimes(Array.from(new Set([...editStartTimes, timeVal])).sort());
     }
   };
 
@@ -176,7 +182,7 @@ export default function SchedulePage() {
       toast.error('Jam tayang ini sudah ada dalam daftar');
       return;
     }
-    setEditStartTimes([...editStartTimes, editCustomTime].sort());
+    setEditStartTimes(Array.from(new Set([...editStartTimes, editCustomTime])).sort());
   };
 
   const removeEditTimeSlot = (timeVal: string) => {
@@ -202,7 +208,6 @@ export default function SchedulePage() {
       setEditSelectedScreens(screens.map((s) => s.id));
     }
   };
-
 
   const handleSaveEdit = async () => {
     if (!editingSchedule || !editName.trim() || !editPlaylistId || editStartTimes.length === 0) {
@@ -323,6 +328,16 @@ export default function SchedulePage() {
     { key: 'malam' as const, label: 'Sesi Malam', time: editPresetTimes.malam, icon: Moon },
   ];
 
+  const filteredModalScreens = screens.filter((screen) => {
+    if (!editScreenSearch) return true;
+    const term = editScreenSearch.toLowerCase();
+    return (
+      screen.name.toLowerCase().includes(term) ||
+      screen.site.toLowerCase().includes(term) ||
+      screen.screen_code.toLowerCase().includes(term)
+    );
+  });
+
   return (
     <div className="pb-12 space-y-6">
       {/* Header */}
@@ -393,7 +408,25 @@ export default function SchedulePage() {
                   ? schedule.start_times
                   : [schedule.start_time || '08:00'];
                 
-                const loops = (schedule as any).playlist?.loop_count ?? schedule.loop_count ?? 3;
+                const uniqueTimesList = Array.from(new Set(timesList)).sort();
+                
+                // Calculate playlist duration & loop mode from target playlist items
+                const plItems = (schedule as any).playlist?.playlist_items || [];
+                let isContinuous = false;
+                let totalSec = 0;
+                
+                (plItems || []).forEach((it: any) => {
+                  if (it.play_limit === 0) isContinuous = true;
+                  const dur = it.media?.duration || 10;
+                  const limit = it.play_limit === 0 ? 1 : (it.play_limit || 1);
+                  totalSec += dur * limit;
+                });
+
+                const badgeText = isContinuous
+                  ? 'Kontinu (Sepanjang Sesi)'
+                  : totalSec > 0
+                  ? `Rotasi: ${formatDuration(totalSec)}`
+                  : 'Rotasi Sesi';
 
                 return (
                   <div
@@ -490,14 +523,14 @@ export default function SchedulePage() {
                         <div className="flex-1">
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] font-bold text-slate-400 uppercase">Multi Jam Tayang Harian</span>
-                            <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.2 rounded border border-purple-200 flex items-center gap-1">
-                              <Repeat className="w-2.5 h-2.5" />
-                              {loops === 0 ? 'Kontinu' : `${loops}x Putaran Playlist`}
+                            <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200 flex items-center gap-1">
+                              <Repeat className="w-3 h-3" />
+                              {badgeText}
                             </span>
                           </div>
                           <div className="flex flex-wrap gap-1.5 mt-1">
-                            {timesList.map((t) => (
-                              <span key={t} className="font-mono text-[10px] font-bold bg-white text-slate-800 px-2 py-0.5 rounded border border-slate-200">
+                            {uniqueTimesList.map((t, idx) => (
+                              <span key={`${t}-${idx}`} className="font-mono text-[10px] font-bold bg-white text-slate-800 px-2 py-0.5 rounded border border-slate-200">
                                 {t} WIB
                               </span>
                             ))}
@@ -535,80 +568,168 @@ export default function SchedulePage() {
         </div>
       </div>
 
-      {/* ── EDIT SCHEDULE DIALOG ── */}
+      {/* ── REVAMPED MODERN EDIT SCHEDULE DIALOG ── */}
       <Dialog open={!!editingSchedule} onOpenChange={(open) => !open && setEditingSchedule(null)}>
-        <DialogContent className="max-w-2xl rounded-2xl border-slate-200 p-6 space-y-4">
-          <DialogTitle className="text-base font-bold text-slate-900 border-b border-slate-100 pb-3">
-            Edit Jadwal & Penugasan Penyiaran
-          </DialogTitle>
+        <DialogContent className="sm:max-w-2xl w-full rounded-2xl border-slate-200 p-0 overflow-hidden shadow-2xl">
+          {/* Fixed Header */}
+          <DialogHeader className="px-6 py-4 border-b border-slate-100 bg-white">
+            <div className="flex items-center justify-between pr-8">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
+                  <Edit3 className="w-4 h-4" />
+                </div>
+                <DialogTitle className="text-base font-bold text-slate-900">
+                  Edit Jadwal & Penugasan
+                </DialogTitle>
+              </div>
 
+              {/* Status Badge Selectable */}
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/80">
+                {(['draft', 'active', 'cancelled'] as const).map((st) => (
+                  <button
+                    key={st}
+                    type="button"
+                    onClick={() => setEditStatus(st)}
+                    className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all ${
+                      editStatus === st
+                        ? st === 'active'
+                          ? 'bg-emerald-600 text-white shadow-2xs'
+                          : st === 'draft'
+                          ? 'bg-amber-500 text-white shadow-2xs'
+                          : 'bg-red-600 text-white shadow-2xs'
+                        : 'text-slate-500 hover:text-slate-900'
+                    }`}
+                  >
+                    {st === 'active' ? 'Aktif' : st === 'draft' ? 'Draft' : 'Dibatalkan'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </DialogHeader>
+
+          {/* Scrollable Form Body */}
           {editingSchedule && (
-            <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1 text-xs">
-              <div className="space-y-1.5">
-                <Label className="text-xs font-bold text-slate-800">Nama Agenda Penyiaran *</Label>
-                <Input
-                  value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  className="h-9 text-xs bg-slate-50 border-slate-200 rounded-xl"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-slate-800">Playlist Target *</Label>
-                  <select
-                    value={editPlaylistId}
-                    onChange={(e) => setEditPlaylistId(e.target.value)}
-                    className="w-full h-9 px-3 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl"
-                  >
-                    {playlists.map((pl) => (
-                      <option key={pl.id} value={pl.id}>
-                        {pl.name} (Perulangan: {pl.loop_count === 0 ? 'Kontinu' : `${pl.loop_count ?? 3}x`})
-                      </option>
-                    ))}
-                  </select>
+            <div className="px-6 py-5 space-y-6 max-h-[58vh] overflow-y-auto custom-scrollbar">
+              {/* SECTION 1: Detail Agenda & Playlist */}
+              <div className="space-y-4 bg-slate-50/50 p-4 rounded-xl border border-slate-200/80">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200/60">
+                  <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                    Informasi Utama Agenda
+                  </span>
+                  <span className="text-[10px] font-semibold text-slate-600 bg-white px-2 py-0.5 rounded-md border border-slate-200">
+                    ID: {editingSchedule.id.slice(0, 8)}
+                  </span>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-slate-800">Mode Tayang</Label>
-                  <select
-                    value={editMode}
-                    onChange={(e) => setEditMode(e.target.value as any)}
-                    className="w-full h-9 px-3 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl"
-                  >
-                    <option value="normal">Normal / Reguler</option>
-                    <option value="promosi">Promosi Spesial</option>
-                  </select>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-slate-800">Tanggal Mulai *</Label>
+                  <Label className="text-xs font-bold text-slate-800">
+                    Nama Agenda Penyiaran <span className="text-red-500">*</span>
+                  </Label>
                   <Input
-                    type="date"
-                    value={editStartDate}
-                    onChange={(e) => setEditStartDate(e.target.value)}
-                    className="h-9 text-xs bg-slate-50 border-slate-200 rounded-xl"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="Contoh: Promo Spesial Hari Kesehatan"
+                    className="h-9 text-xs bg-white border-slate-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20"
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-bold text-slate-800">Tanggal Selesai *</Label>
-                  <Input
-                    type="date"
-                    value={editEndDate}
-                    onChange={(e) => setEditEndDate(e.target.value)}
-                    className="h-9 text-xs bg-slate-50 border-slate-200 rounded-xl"
-                  />
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-slate-800">
+                      Playlist Target Media <span className="text-red-500">*</span>
+                    </Label>
+                    <select
+                      value={editPlaylistId}
+                      onChange={(e) => setEditPlaylistId(e.target.value)}
+                      className="w-full h-9 px-3 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none transition-all"
+                    >
+                      {playlists.map((pl) => {
+                        const items = (pl as any).playlist_items || [];
+                        let isContinuous = false;
+                        let totalSec = 0;
+                        (items || []).forEach((it: any) => {
+                          if (it.play_limit === 0) isContinuous = true;
+                          const dur = it.media?.duration || 10;
+                          const limit = it.play_limit === 0 ? 1 : (it.play_limit || 1);
+                          totalSec += dur * limit;
+                        });
+                        const durLabel = isContinuous
+                          ? 'Kontinu'
+                          : totalSec > 0
+                          ? `Durasi ${formatDuration(totalSec)}`
+                          : 'Rotasi Sesi';
+
+                        return (
+                          <option key={pl.id} value={pl.id}>
+                            {pl.name} ({items.length} Media • {durLabel})
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-slate-800">Mode Penyiaran</Label>
+                    <select
+                      value={editMode}
+                      onChange={(e) => setEditMode(e.target.value as any)}
+                      className="w-full h-9 px-3 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-xl focus:border-blue-500 focus:outline-none transition-all"
+                    >
+                      <option value="normal">Normal / Reguler (Default)</option>
+                      <option value="promosi">Promosi Spesial (Takeover Layar)</option>
+                    </select>
+                  </div>
                 </div>
               </div>
 
-              {/* Boutique 3-Column Presets in Edit Modal */}
-              <div className="space-y-3 pt-2 border-t border-slate-100">
-                <Label className="text-xs font-bold text-slate-800 flex items-center gap-1">
-                  <Clock className="w-3.5 h-3.5 text-blue-600" /> Multi Jam Tayang Harian
-                </Label>
+              {/* SECTION 2: Periode Tanggal */}
+              <div className="space-y-3 bg-slate-50/50 p-4 rounded-xl border border-slate-200/80">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200/60">
+                  <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-blue-600" />
+                    Periode Tanggal Penyiaran
+                  </span>
+                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-slate-800">Tanggal Mulai *</Label>
+                    <Input
+                      type="date"
+                      value={editStartDate}
+                      onChange={(e) => setEditStartDate(e.target.value)}
+                      className="h-9 text-xs bg-white border-slate-200 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-slate-800">Tanggal Selesai *</Label>
+                    <Input
+                      type="date"
+                      value={editEndDate}
+                      onChange={(e) => setEditEndDate(e.target.value)}
+                      className="h-9 text-xs bg-white border-slate-200 rounded-xl"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* SECTION 3: Multi Jam Tayang Harian */}
+              <div className="space-y-3.5 bg-slate-50/50 p-4 rounded-xl border border-slate-200/80">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200/60">
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-blue-600" />
+                      Multi Jam Tayang Harian
+                    </span>
+                    <p className="text-[11px] text-slate-500 font-normal mt-0.5">
+                      Aktifkan jam tayang cepat atau tambahkan kustom jam tayang harian.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Preset Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {editPresetList.map((p) => {
                     const Icon = p.icon;
                     const isSel = editStartTimes.includes(p.time);
@@ -616,23 +737,29 @@ export default function SchedulePage() {
                       <div
                         key={p.key}
                         onClick={() => toggleEditPresetTime(p.time)}
-                        className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-2.5 ${
-                          isSel ? 'bg-blue-50/80 border-blue-300/80' : 'bg-slate-50/50 border-slate-200/80'
+                        className={`p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between space-y-2.5 ${
+                          isSel
+                            ? 'bg-blue-50/80 border-blue-300 text-blue-950 shadow-2xs'
+                            : 'bg-white border-slate-200/90 text-slate-700 hover:border-slate-300'
                         }`}
                       >
-                        <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                        <div className="flex items-center justify-between text-xs font-bold">
                           <span className="flex items-center gap-1.5">
                             <Icon className={`w-3.5 h-3.5 ${isSel ? 'text-blue-600' : 'text-slate-400'}`} />
                             {p.label}
                           </span>
-                          <div className={`w-4 h-4 rounded-md flex items-center justify-center border ${
+                          <div className={`w-4 h-4 rounded-md flex items-center justify-center border transition-all ${
                             isSel ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 bg-white'
                           }`}>
                             {isSel && <Check className="w-3 h-3 stroke-[3]" />}
                           </div>
                         </div>
 
-                        <div onClick={(e) => e.stopPropagation()} className="bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 shadow-2xs">
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 flex items-center gap-1.5"
+                        >
+                          <Clock className="w-3 h-3 text-slate-400 shrink-0" />
                           <input
                             type="time"
                             value={p.time}
@@ -645,104 +772,146 @@ export default function SchedulePage() {
                   })}
                 </div>
 
-                <div className="p-3.5 rounded-xl bg-slate-50/60 border border-slate-200/80 space-y-2">
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
-                    Slot Aktif ({editStartTimes.length} Slot)
-                  </span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {editStartTimes.map((tVal) => (
-                      <span key={tVal} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white border border-slate-200 font-mono text-xs font-bold text-slate-900">
+                {/* Active Slots Pill Bar */}
+                <div className="p-3.5 rounded-xl bg-white border border-slate-200/90 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                      Slot Jam Tayang Aktif ({editStartTimes.length} Slot)
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {editStartTimes.map((tVal, idx) => (
+                      <span
+                        key={`${tVal}-${idx}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-100 border border-slate-200 font-mono text-xs font-bold text-slate-900 shadow-2xs"
+                      >
+                        <Clock className="w-3 h-3 text-blue-600" />
                         {tVal} WIB
-                        <button type="button" onClick={() => removeEditTimeSlot(tVal)} className="hover:text-red-600 ml-0.5">
-                          <X className="w-3 h-3" />
+                        <button
+                          type="button"
+                          onClick={() => removeEditTimeSlot(tVal)}
+                          className="hover:text-red-600 transition-colors ml-0.5"
+                          title="Hapus slot"
+                        >
+                          <X className="w-3.5 h-3.5" />
                         </button>
                       </span>
                     ))}
                   </div>
 
-                  <div className="flex items-center gap-2 pt-1.5 border-t border-slate-200/60">
-                    <span className="text-[11px] font-medium text-slate-600">Tambah Slot:</span>
+                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                    <span className="text-[11px] font-semibold text-slate-600">Tambah Jam Custom:</span>
                     <input
                       type="time"
                       value={editCustomTime}
                       onChange={(e) => setEditCustomTime(e.target.value)}
-                      className="h-7 px-2 text-xs font-mono font-bold bg-white border border-slate-200 rounded-lg focus:outline-none"
+                      className="h-8 px-2.5 text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white"
                     />
                     <button
                       type="button"
                       onClick={addEditCustomTimeSlot}
-                      className="h-7 px-2.5 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-colors flex items-center gap-1"
+                      className="h-8 px-3 text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white rounded-lg transition-colors flex items-center gap-1 shadow-2xs"
                     >
-                      <Plus className="w-3 h-3" />
-                      Tambah
+                      <Plus className="w-3.5 h-3.5" />
+                      Tambah Slot
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* Target Perangkat Layar TV */}
-              <div className="space-y-3 pt-3 border-t border-slate-100">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                    <Tv className="w-3.5 h-3.5 text-blue-600" /> Target Perangkat Layar TV ({editSelectedScreens.length}/{screens.length} Layar) *
-                  </Label>
-                  <button
-                    type="button"
-                    onClick={selectAllEditScreens}
-                    className="text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 transition-colors"
-                  >
-                    {editSelectedScreens.length === screens.length ? 'Batalkan Semua' : 'Pilih Semua Layar'}
-                  </button>
+              {/* SECTION 4: Target Perangkat Layar TV */}
+              <div className="space-y-3.5 bg-slate-50/50 p-4 rounded-xl border border-slate-200/80">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-200/60">
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <Tv className="w-4 h-4 text-blue-600" />
+                      Target Perangkat Layar TV ({editSelectedScreens.length}/{screens.length} Layar) *
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="Cari layar..."
+                        value={editScreenSearch}
+                        onChange={(e) => setEditScreenSearch(e.target.value)}
+                        className="pl-8 h-7 text-[11px] bg-white border border-slate-200 rounded-lg focus:outline-none w-32 sm:w-40"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={selectAllEditScreens}
+                      className="text-[11px] font-bold text-blue-600 hover:text-blue-700 bg-white px-2.5 py-1 rounded-lg border border-blue-200 transition-colors shrink-0"
+                    >
+                      {editSelectedScreens.length === screens.length ? 'Batalkan Semua' : 'Pilih Semua'}
+                    </button>
+                  </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-48 overflow-y-auto pr-1">
-                  {screens.map((screen) => {
-                    const isSelected = editSelectedScreens.includes(screen.id);
-                    return (
-                      <div
-                        key={screen.id}
-                        onClick={() => toggleEditScreen(screen.id)}
-                        className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
-                          isSelected
-                            ? 'bg-blue-50/80 border-blue-300 text-blue-950 shadow-2xs'
-                            : 'bg-slate-50/50 border-slate-200/80 text-slate-700 hover:border-slate-300'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className={`w-4 h-4 rounded-md flex items-center justify-center border shrink-0 ${
-                            isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 bg-white'
-                          }`}>
-                            {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-52 overflow-y-auto pr-1">
+                  {filteredModalScreens.length === 0 ? (
+                    <div className="col-span-2 text-center py-6 text-xs text-slate-400">
+                      Tidak ada perangkat layar yang cocok
+                    </div>
+                  ) : (
+                    filteredModalScreens.map((screen) => {
+                      const isSelected = editSelectedScreens.includes(screen.id);
+                      return (
+                        <div
+                          key={screen.id}
+                          onClick={() => toggleEditScreen(screen.id)}
+                          className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                            isSelected
+                              ? 'bg-blue-50/90 border-blue-300 text-blue-950 shadow-2xs'
+                              : 'bg-white border-slate-200/90 text-slate-700 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className={`w-4 h-4 rounded-md flex items-center justify-center border shrink-0 transition-all ${
+                              isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 bg-white'
+                            }`}>
+                              {isSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-bold text-xs truncate text-slate-900">{screen.name}</p>
+                              <p className="text-[10px] text-slate-500 truncate">{screen.site} ({screen.screen_code})</p>
+                            </div>
                           </div>
-                          <div className="min-w-0">
-                            <p className="font-bold text-xs truncate text-slate-900">{screen.name}</p>
-                            <p className="text-[10px] text-slate-500 truncate">{screen.site} ({screen.screen_code})</p>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className={`w-2 h-2 rounded-full ${
+                              screen.status === 'online' ? 'bg-emerald-500' : 'bg-slate-300'
+                            }`} />
+                            <span className="text-[9px] font-semibold uppercase text-slate-400">
+                              {screen.status}
+                            </span>
                           </div>
                         </div>
-
-                        <div className={`w-2 h-2 rounded-full shrink-0 ${
-                          screen.status === 'online' ? 'bg-emerald-500' : 'bg-slate-300'
-                        }`} />
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
               </div>
             </div>
           )}
 
-
-          <DialogFooter className="gap-2 border-t border-slate-100 pt-3">
+          {/* Fixed Footer */}
+          <DialogFooter className="m-0 p-4 sm:px-6 sm:py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-3 rounded-b-2xl">
             <button
+              type="button"
               onClick={() => setEditingSchedule(null)}
-              className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50"
+              className="px-4 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-semibold hover:bg-slate-100 transition-colors"
             >
               Batal
             </button>
             <button
+              type="button"
               onClick={handleSaveEdit}
               disabled={savingEdit}
-              className="px-5 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 disabled:opacity-50 flex items-center gap-1.5"
+              className="px-5 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 disabled:opacity-50 flex items-center gap-2 shadow-2xs transition-all active:scale-[0.98]"
             >
               {savingEdit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
               Simpan Perubahan

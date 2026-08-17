@@ -73,6 +73,7 @@ export interface PlaylistItem {
   media_id: string;
   sort_order: number;
   play_limit: number;
+  loop_mode?: 'kontinu' | 'sinkronisasi';
   created_at: string;
   media?: Media;
 }

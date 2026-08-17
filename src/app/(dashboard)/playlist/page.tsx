@@ -31,8 +31,9 @@ import {
   Loader2,
   Sparkles,
   ArrowRight,
-  Repeat,
   SlidersHorizontal,
+  RefreshCw,
+  Zap,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Label } from '@/components/ui/label';
@@ -48,7 +49,6 @@ export default function PlaylistPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [newDesc, setNewDesc] = useState('');
-  const [newLoopCount, setNewLoopCount] = useState<number>(3); // Default 3x putaran
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -85,7 +85,6 @@ export default function PlaylistPage() {
       .insert({
         name: newName.trim(),
         description: newDesc.trim() || null,
-        loop_count: newLoopCount,
         status: 'draft',
         created_by: createdBy,
       })
@@ -98,7 +97,6 @@ export default function PlaylistPage() {
         .insert({
           name: newName.trim(),
           description: newDesc.trim() || null,
-          loop_count: newLoopCount,
           status: 'draft',
           created_by: null,
         })
@@ -120,14 +118,13 @@ export default function PlaylistPage() {
       'create_playlist',
       'playlist',
       data.id,
-      `Membuat playlist: ${newName.trim()} (${newLoopCount === 0 ? 'Kontinu' : `${newLoopCount}x putaran`})`
+      `Membuat playlist: ${newName.trim()}`
     );
 
     toast.success('Playlist berhasil dibuat');
     setShowCreate(false);
     setNewName('');
     setNewDesc('');
-    setNewLoopCount(3);
     setCreating(false);
     loadPlaylists();
   };
@@ -197,13 +194,13 @@ export default function PlaylistPage() {
             </div>
           </div>
           <p className="text-xs text-slate-500 font-normal mt-1">
-            Atur kelompok media, urutan slide, serta pengaturan putaran tayang (looping) untuk disiarkan ke TV.
+            Atur kelompok media, urutan slide, serta mode perulangan per video (Kontinu & Sinkronisasi).
           </p>
         </div>
 
         <button
           onClick={() => setShowCreate(true)}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 shadow-2xs transition-all active:scale-[0.98]"
+          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-800 shadow-2xs transition-all active:scale-[0.98]"
         >
           <Plus className="w-3.5 h-3.5" />
           Buat Playlist Baru
@@ -241,7 +238,6 @@ export default function PlaylistPage() {
           ) : (
             <div className="space-y-3">
               {filtered.map((playlist) => {
-                const loopVal = playlist.loop_count ?? 3;
                 return (
                   <div
                     key={playlist.id}
@@ -258,11 +254,6 @@ export default function PlaylistPage() {
                           </h3>
                           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${statusConfig[playlist.status]?.className || ''}`}>
                             {statusConfig[playlist.status]?.label || playlist.status}
-                          </span>
-                          {/* Looping Badge */}
-                          <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200/80 flex items-center gap-1">
-                            <Repeat className="w-3 h-3" />
-                            {loopVal === 0 ? 'Kontinu (Sepanjang Hari)' : `${loopVal}x Putaran`}
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-500 font-normal truncate mt-1">
@@ -283,7 +274,7 @@ export default function PlaylistPage() {
                       <Link href={`/playlist/${playlist.id}`}>
                         <button className="px-3.5 py-2 rounded-lg bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-slate-900 hover:text-white transition-all flex items-center gap-1.5 shadow-2xs group/btn">
                           <Edit3 className="w-3.5 h-3.5" />
-                          <span>Kelola Urutan & Looping</span>
+                          <span>Kelola Media & Loop</span>
                           <ArrowRight className="w-3 h-3 group-hover/btn:translate-x-0.5 transition-transform" />
                         </button>
                       </Link>
@@ -323,30 +314,30 @@ export default function PlaylistPage() {
           <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-2xs space-y-4">
             <div className="flex items-center gap-2 border-b border-slate-100 pb-3">
               <SlidersHorizontal className="w-4 h-4 text-indigo-600" />
-              <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Mekanisme Putaran (Looping)</h2>
+              <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Mekanisme Loop Per Video</h2>
             </div>
 
             <div className="space-y-3">
               <div className="flex items-start gap-2.5">
-                <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                <div className="w-6 h-6 rounded-md bg-purple-50 text-purple-700 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
                   1
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900">Atur Looping per Playlist</h4>
+                  <h4 className="text-xs font-bold text-slate-900">Putar N Kali Per Video</h4>
                   <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
-                    Pengaturan berapa kali playlist diputar kini langsung diatur pada tiap Playlist (1x, 2x, 3x, 5x, 10x, atau Kontinu).
+                    Tentukan berapa kali media spesifik diputar berurutan (misal 1x, 2x, 5x) sebelum beralih ke video berikutnya.
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-2.5">
-                <div className="w-6 h-6 rounded-md bg-indigo-50 text-indigo-600 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
-                  2
+                <div className="w-6 h-6 rounded-md bg-purple-50 text-purple-700 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">
+                  <RefreshCw className="w-3.5 h-3.5" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-slate-900">Mode Kontinu (Sepanjang Hari)</h4>
+                  <h4 className="text-xs font-bold text-slate-900">Mode Kontinu Per Video</h4>
                   <p className="text-[11px] text-slate-500 leading-relaxed mt-0.5">
-                    Mode Kontinu membuat pemutar TV memutar playlist ini tanpa henti selama jam sesi tayang aktif.
+                    Aktifkan opsi Kontinu pada video tertentu agar diputar berulang terus-menerus.
                   </p>
                 </div>
               </div>
@@ -365,7 +356,7 @@ export default function PlaylistPage() {
             <div>
               <DialogTitle className="text-base font-bold text-slate-900 leading-snug">Buat Playlist Baru</DialogTitle>
               <DialogDescription className="text-xs text-slate-500 font-normal mt-0.5">
-                Kelompokkan berkas video dan gambar serta atur batas putaran tayang (looping).
+                Kelompokkan berkas video dan gambar untuk penayangan Digital Signage.
               </DialogDescription>
             </div>
           </div>
@@ -402,45 +393,10 @@ export default function PlaylistPage() {
               />
             </div>
 
-            {/* Putaran Looping Selector */}
-            <div className="space-y-2 pt-2 border-t border-slate-100">
-              <Label className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                <Repeat className="w-4 h-4 text-purple-600" />
-                Jumlah Putaran Tayang (Looping)
-              </Label>
-              <p className="text-[11px] text-slate-500 font-normal">
-                Berapa kali seluruh isi media diputar secara berulang sebelum sesi tayang selesai.
-              </p>
-
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-                {[
-                  { label: '1x', val: 1 },
-                  { label: '2x', val: 2 },
-                  { label: '3x', val: 3 },
-                  { label: '5x', val: 5 },
-                  { label: '10x', val: 10 },
-                  { label: 'Kontinu', val: 0 },
-                ].map((opt) => (
-                  <button
-                    type="button"
-                    key={opt.val}
-                    onClick={() => setNewLoopCount(opt.val)}
-                    className={`py-2 px-2.5 rounded-xl border text-xs font-bold transition-all text-center ${
-                      newLoopCount === opt.val
-                        ? 'bg-purple-600 text-white border-purple-600 shadow-2xs'
-                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 flex items-start gap-2.5">
               <Sparkles className="w-4 h-4 text-indigo-600 flex-shrink-0 mt-0.5" />
               <p className="text-[11px] text-indigo-900 leading-relaxed font-medium">
-                Setelan looping ini otomatis digunakan oleh Jadwal Penyiaran yang memilih playlist ini.
+                Setelah membuat playlist, Anda dapat menambahkan berkas media dan mengatur mode loop (Kontinu & Sinkronisasi) untuk tiap video.
               </p>
             </div>
           </div>
