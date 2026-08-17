@@ -149,6 +149,21 @@ export default function UploadMediaPage() {
     try {
       const supabase = createClient();
 
+      // Check for duplicate title in database before starting upload
+      const { data: existingMedia } = await supabase
+        .from('media')
+        .select('id, title')
+        .ilike('title', title.trim())
+        .maybeSingle();
+
+      if (existingMedia) {
+        toast.error('Gagal Mengunggah Berkas Media', {
+          description: `Media dengan judul "${title.trim()}" sudah ada dalam pustaka media. Harap gunakan judul lain.`,
+        });
+        setUploading(false);
+        return;
+      }
+
       // 1. Upload file to Supabase Storage with REAL progress tracking
       const ext = file.name.split('.').pop();
       const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;

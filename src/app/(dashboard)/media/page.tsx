@@ -32,6 +32,7 @@ import {
   List,
   Eye,
   Plus,
+  Play,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Media } from '@/lib/types';
@@ -225,12 +226,20 @@ export default function MediaPage() {
               className="group relative bg-white rounded-xl border border-slate-200 shadow-2xs hover:border-slate-300 hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col"
             >
               {/* Thumbnail Container */}
-              <div className="aspect-video bg-slate-900 relative overflow-hidden flex items-center justify-center">
+              <div className="aspect-video bg-slate-950 relative overflow-hidden flex items-center justify-center">
                 {item.media_type === 'image' && item.file_url ? (
                   <img
                     src={item.file_url}
                     alt={item.title}
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                  />
+                ) : item.media_type === 'video' && item.file_url ? (
+                  <video
+                    src={`${item.file_url}#t=0.5`}
+                    preload="metadata"
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 pointer-events-none"
                   />
                 ) : (
                   <div className="w-full h-full bg-slate-900 flex items-center justify-center">
@@ -238,14 +247,20 @@ export default function MediaPage() {
                   </div>
                 )}
 
+                {item.media_type === 'video' && (
+                  <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-black/60 backdrop-blur-xs border border-white/20 flex items-center justify-center text-white pointer-events-none z-10">
+                    <Play className="w-3 h-3 fill-current ml-0.5 text-white" />
+                  </div>
+                )}
+
                 {item.media_type === 'video' && item.duration && (
-                  <span className="absolute bottom-2 right-2 text-[10px] font-bold text-white bg-black/70 backdrop-blur-xs px-2 py-0.5 rounded-md border border-white/10">
+                  <span className="absolute bottom-2 right-2 text-[10px] font-bold text-white bg-black/70 backdrop-blur-xs px-2 py-0.5 rounded-md border border-white/10 z-10">
                     {formatDuration(item.duration)}
                   </span>
                 )}
 
                 {/* Hover Preview Overlay */}
-                <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center">
+                <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center z-20">
                   <button
                     onClick={() => setPreviewMedia(item)}
                     className="px-3.5 py-1.5 rounded-lg bg-white text-slate-900 text-xs font-semibold shadow-md hover:bg-slate-100 transition-all flex items-center gap-1.5 active:scale-95"
