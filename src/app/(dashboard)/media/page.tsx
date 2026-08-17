@@ -226,7 +226,25 @@ export default function MediaPage() {
               className="group relative bg-white rounded-xl border border-slate-200 shadow-2xs hover:border-slate-300 hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col"
             >
               {/* Thumbnail Container */}
-              <div className="aspect-video bg-slate-950 relative overflow-hidden flex items-center justify-center">
+              <div
+                onClick={() => setPreviewMedia(item)}
+                onMouseEnter={(e) => {
+                  if (item.media_type === 'video') {
+                    const v = e.currentTarget.querySelector('video');
+                    if (v) v.play().catch(() => {});
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (item.media_type === 'video') {
+                    const v = e.currentTarget.querySelector('video');
+                    if (v) {
+                      v.pause();
+                      v.currentTime = 0.5;
+                    }
+                  }
+                }}
+                className="aspect-video bg-slate-950 relative overflow-hidden flex items-center justify-center cursor-pointer"
+              >
                 {item.media_type === 'image' && item.file_url ? (
                   <img
                     src={item.file_url}
@@ -238,6 +256,7 @@ export default function MediaPage() {
                     src={`${item.file_url}#t=0.5`}
                     preload="metadata"
                     muted
+                    loop
                     playsInline
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105 pointer-events-none"
                   />
@@ -254,20 +273,17 @@ export default function MediaPage() {
                 )}
 
                 {item.media_type === 'video' && item.duration && (
-                  <span className="absolute bottom-2 right-2 text-[10px] font-bold text-white bg-black/70 backdrop-blur-xs px-2 py-0.5 rounded-md border border-white/10 z-10">
+                  <span className="absolute bottom-2 right-2 text-[10px] font-bold text-white bg-black/70 backdrop-blur-xs px-2 py-0.5 rounded-md border border-white/10 z-10 pointer-events-none">
                     {formatDuration(item.duration)}
                   </span>
                 )}
 
-                {/* Hover Preview Overlay */}
-                <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center z-20">
-                  <button
-                    onClick={() => setPreviewMedia(item)}
-                    className="px-3.5 py-1.5 rounded-lg bg-white text-slate-900 text-xs font-semibold shadow-md hover:bg-slate-100 transition-all flex items-center gap-1.5 active:scale-95"
-                  >
+                {/* Hover Preview Overlay Button */}
+                <div className="absolute inset-0 bg-slate-900/30 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center z-20">
+                  <div className="px-3.5 py-1.5 rounded-lg bg-white/90 backdrop-blur-xs text-slate-900 text-xs font-bold shadow-md hover:bg-white transition-all flex items-center gap-1.5 pointer-events-none">
                     <Eye className="w-3.5 h-3.5 text-blue-600" />
-                    Preview
-                  </button>
+                    Putar & Popup
+                  </div>
                 </div>
               </div>
 
