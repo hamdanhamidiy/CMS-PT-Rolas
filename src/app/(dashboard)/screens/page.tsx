@@ -207,8 +207,12 @@ export default function ScreensPage() {
     loadScreens();
   };
 
-  const openWebPlayer = () => {
-    window.open('/player', '_blank');
+  const openWebPlayer = (screenIdOrCode?: string) => {
+    if (screenIdOrCode) {
+      window.open(`/player?id=${screenIdOrCode}`, '_blank');
+    } else {
+      window.open('/player', '_blank');
+    }
   };
 
   // Unique sites for filter
@@ -267,7 +271,7 @@ export default function ScreensPage() {
         {/* Top Header Actions */}
         <div className="flex items-center gap-2.5 shrink-0">
           <button
-            onClick={openWebPlayer}
+            onClick={() => openWebPlayer()}
             className="h-9.5 px-4 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100/80 border border-blue-200/90 rounded-xl transition-all active:scale-98 flex items-center gap-2"
           >
             <ExternalLink className="w-3.5 h-3.5" />
@@ -495,7 +499,7 @@ export default function ScreensPage() {
                     <td className="px-5 py-3.5 text-right whitespace-nowrap">
                       <div className="flex items-center justify-end gap-2">
                         <button
-                          onClick={openWebPlayer}
+                          onClick={() => openWebPlayer(screen.id)}
                           className="h-8 px-3 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold border border-blue-200/80 transition-all flex items-center gap-1.5"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />
@@ -634,7 +638,7 @@ export default function ScreensPage() {
 
               <div className="pt-3 border-t border-slate-100">
                 <button
-                  onClick={openWebPlayer}
+                  onClick={() => openWebPlayer(screen.id)}
                   className="w-full h-9 rounded-xl bg-slate-900 hover:bg-blue-600 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-2xs"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
