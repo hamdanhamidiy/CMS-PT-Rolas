@@ -31,6 +31,26 @@ const SCHEDULE_CHECK_INTERVAL = 10000; // Check schedule transition every 10 sec
 const CLOCK_SYNC_INTERVAL = 3000; // Re-align player clock with global epoch every 3 seconds
 const SCREEN_ID_KEY = 'signage_screen_id';
 
+// ============================================
+// Live Clock Isolated Component (Prevents Player Re-renders)
+// ============================================
+function LiveClock() {
+  const [time, setTime] = useState('');
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setTime(
+        now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      );
+    };
+    updateTime();
+    const timer = setInterval(updateTime, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return <span>{time || '00:00:00'} WIB</span>;
+}
+
 function PlayerContent() {
   const searchParams = useSearchParams();
   const queryId = searchParams.get('id') || searchParams.get('screen_id');
@@ -57,29 +77,18 @@ function PlayerContent() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [isMuted, setIsMuted] = useState(false);
+  const showControlsRef = useRef(true);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const userExplicitlyMutedRef = useRef(false);
-
-  // Live Clock State
-  const [currentTimeDisplay, setCurrentTimeDisplay] = useState('');
+  const lastActivityTimeRef = useRef(0);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const heartbeatRef = useRef<NodeJS.Timeout | null>(null);
   const activeScheduleIdRef = useRef<string | null>(null);
   const playlistRef = useRef<(PlaylistItem & { media: Media })[]>([]);
-
-  // Update real-time clock
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      setCurrentTimeDisplay(
-        now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-      );
-    };
-    updateTime();
-    const timer = setInterval(updateTime, 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const currentIndexRef = useRef(0);
+  const itemRepeatCountRef = useRef(0);
+  const imageTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Keep refs in sync
   useEffect(() => {
@@ -90,29 +99,37 @@ function PlayerContent() {
     playlistRef.current = playlist;
   }, [playlist]);
 
-  // Auto-hide floating controls after inactivity
-  const handleUserActivity = () => {
-    setShowControls(true);
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+  }, [currentIndex]);
+
+  // Throttled auto-hide floating controls after inactivity (No main thread stutter)
+  const handleUserActivity = useCallback(() => {
+    const now = Date.now();
+    if (now - lastActivityTimeRef.current < 250) return; // Throttle to 250ms
+    lastActivityTimeRef.current = now;
+
+    if (!showControlsRef.current) {
+      showControlsRef.current = true;
+      setShowControls(true);
+    }
+
     if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     controlsTimeoutRef.current = setTimeout(() => {
+      showControlsRef.current = false;
       setShowControls(false);
     }, 3500);
-
-    if (videoRef.current && videoRef.current.muted && !userExplicitlyMutedRef.current) {
-      videoRef.current.muted = false;
-      setIsMuted(false);
-    }
-  };
+  }, []);
 
   useEffect(() => {
-    window.addEventListener('mousemove', handleUserActivity);
-    window.addEventListener('touchstart', handleUserActivity);
+    window.addEventListener('mousemove', handleUserActivity, { passive: true });
+    window.addEventListener('touchstart', handleUserActivity, { passive: true });
     return () => {
       window.removeEventListener('mousemove', handleUserActivity);
       window.removeEventListener('touchstart', handleUserActivity);
       if (controlsTimeoutRef.current) clearTimeout(controlsTimeoutRef.current);
     };
-  }, []);
+  }, [handleUserActivity]);
 
   // Listen for native fullscreen change events
   useEffect(() => {
@@ -176,9 +193,12 @@ function PlayerContent() {
     setScreenId(null);
     setSelectedScreenData(null);
     setPlaylist([]);
+    playlistRef.current = [];
     setCurrentMedia(null);
     setActiveScheduleId(null);
+    activeScheduleIdRef.current = null;
     if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+    if (imageTimerRef.current) clearTimeout(imageTimerRef.current);
     setPhase('selection');
     fetchAvailableScreens();
   };
@@ -292,56 +312,78 @@ function PlayerContent() {
   };
 
   // ============================================
-  // GLOBAL WALL CLOCK SYNCHRONIZATION ENGINE
+  // INSTANT & SMOOTH PLAYLIST TRANSITION ENGINE
   // ============================================
-  const syncGlobalClock = useCallback(() => {
-    const currentList = playlistRef.current;
-    if (currentList.length === 0) return;
+  const advanceToNextMedia = useCallback(() => {
+    const list = playlistRef.current;
+    if (list.length === 0) return;
 
-    let totalLoopSec = 0;
-    const itemDurations = currentList.map((item) => {
-      const dur = item.media?.duration || 10;
-      const limit = item.play_limit === 0 ? 1 : (item.play_limit || 1);
-      const totalItemSec = dur * limit;
-      totalLoopSec += totalItemSec;
-      return { dur, limit, totalItemSec };
-    });
+    const currentItem = list[currentIndexRef.current];
+    const limit = currentItem?.play_limit ?? 1;
 
-    if (totalLoopSec === 0) return;
-
-    const nowSec = Math.floor(Date.now() / 1000);
-    const globalPos = nowSec % totalLoopSec;
-
-    let accum = 0;
-    let targetIndex = 0;
-    let offsetInItem = 0;
-
-    for (let i = 0; i < currentList.length; i++) {
-      const itemSec = itemDurations[i].totalItemSec;
-      if (accum + itemSec > globalPos) {
-        targetIndex = i;
-        offsetInItem = globalPos - accum;
-        break;
+    // Handle repeat count for items with play_limit > 1
+    if (limit > 1 && itemRepeatCountRef.current + 1 < limit) {
+      itemRepeatCountRef.current += 1;
+      if (videoRef.current && currentItem.media?.media_type === 'video') {
+        videoRef.current.currentTime = 0;
+        videoRef.current.play().catch(() => {});
       }
-      accum += itemSec;
+      return;
     }
 
-    const targetMedia = currentList[targetIndex]?.media;
-    if (!targetMedia) return;
-
-    const mediaDur = targetMedia.duration || 10;
-    const offsetInMedia = offsetInItem % mediaDur;
-
-    setCurrentIndex(targetIndex);
-    setCurrentMedia(targetMedia);
-
-    if (targetMedia.media_type === 'video' && videoRef.current) {
-      const vid = videoRef.current;
-      if (Math.abs(vid.currentTime - offsetInMedia) > 1.0) {
-        vid.currentTime = offsetInMedia;
-      }
-    }
+    // Reset repeat count and advance to next item
+    itemRepeatCountRef.current = 0;
+    const nextIdx = (currentIndexRef.current + 1) % list.length;
+    currentIndexRef.current = nextIdx;
+    setCurrentIndex(nextIdx);
+    setCurrentMedia(list[nextIdx]?.media || null);
   }, []);
+
+  const handleVideoEnded = useCallback(() => {
+    const list = playlistRef.current;
+    if (list.length === 0) return;
+
+    const currentItem = list[currentIndexRef.current];
+    const isOnlyOneItem = list.length === 1;
+    const isContinuousItem = currentItem?.play_limit === 0;
+
+    // Single item continuous loop: replay instantly without swapping element
+    if (isOnlyOneItem || isContinuousItem) {
+      if (isOnlyOneItem && isContinuousItem) {
+        if (videoRef.current) {
+          videoRef.current.currentTime = 0;
+          videoRef.current.play().catch(() => {});
+        }
+        return;
+      }
+    }
+
+    advanceToNextMedia();
+  }, [advanceToNextMedia]);
+
+  const handleVideoError = useCallback(() => {
+    console.warn('Video failed to load or play, moving smoothly to next item...');
+    setTimeout(() => {
+      advanceToNextMedia();
+    }, 1000);
+  }, [advanceToNextMedia]);
+
+  // Image display duration timer
+  useEffect(() => {
+    if (imageTimerRef.current) clearTimeout(imageTimerRef.current);
+    if (!currentMedia || phase !== 'playing') return;
+
+    if (currentMedia.media_type === 'image') {
+      const durationSec = currentMedia.duration && currentMedia.duration > 0 ? currentMedia.duration : 10;
+      imageTimerRef.current = setTimeout(() => {
+        advanceToNextMedia();
+      }, durationSec * 1000);
+    }
+
+    return () => {
+      if (imageTimerRef.current) clearTimeout(imageTimerRef.current);
+    };
+  }, [currentMedia, phase, advanceToNextMedia]);
 
   // ============================================
   // Load Schedule & Play
@@ -362,8 +404,10 @@ function PlayerContent() {
     if (!scheduleScreens || scheduleScreens.length === 0) {
       if (activeScheduleIdRef.current !== null || playlist.length > 0) {
         setPlaylist([]);
+        playlistRef.current = [];
         setCurrentMedia(null);
         setActiveScheduleId(null);
+        activeScheduleIdRef.current = null;
       }
       setPhase('playing');
       startHeartbeat(sid, null);
@@ -383,8 +427,10 @@ function PlayerContent() {
     if (!schedules || schedules.length === 0) {
       if (activeScheduleIdRef.current !== null || playlist.length > 0) {
         setPlaylist([]);
+        playlistRef.current = [];
         setCurrentMedia(null);
         setActiveScheduleId(null);
+        activeScheduleIdRef.current = null;
       }
       setPhase('playing');
       startHeartbeat(sid, null);
@@ -424,18 +470,37 @@ function PlayerContent() {
         playlistTotalSec += dur * limit;
       });
 
-      const isSlotActive = times.some((tStr) => {
-        const slotStartSec = timeToSec(tStr);
-        const slotEndSec = isPlaylistContinuous
-          ? (sched.end_time && sched.end_time !== '23:59' && sched.end_time !== '23:59:00' ? timeToSec(sched.end_time) : slotStartSec + 86400)
-          : slotStartSec + (playlistTotalSec || 60);
+      let isSlotActive = false;
 
-        if (slotStartSec <= slotEndSec) {
-          return nowSec >= slotStartSec && nowSec < slotEndSec;
-        } else {
-          return nowSec >= slotStartSec || nowSec < slotEndSec;
+      if (isPlaylistContinuous) {
+        // Continuous playlist inside valid active date range
+        if (sched.start_date < today && today <= sched.end_date) {
+          // On day 2+ of the campaign: Active 24/7 all day until end_time (or end of day)
+          const endSec = sched.end_time && sched.end_time !== '23:59' && sched.end_time !== '23:59:00'
+            ? timeToSec(sched.end_time)
+            : 86400;
+          isSlotActive = nowSec < endSec;
+        } else if (sched.start_date === today) {
+          // On start day: Active from the earliest start time onwards
+          const earliestStartSec = Math.min(...times.map(timeToSec));
+          const endSec = sched.end_time && sched.end_time !== '23:59' && sched.end_time !== '23:59:00'
+            ? timeToSec(sched.end_time)
+            : 86400;
+          isSlotActive = nowSec >= earliestStartSec && nowSec < endSec;
         }
-      });
+      } else {
+        // Discrete session slots (e.g. 08:00, 12:00, 19:00 with fixed loop duration)
+        isSlotActive = times.some((tStr) => {
+          const slotStartSec = timeToSec(tStr);
+          const slotEndSec = slotStartSec + (playlistTotalSec || 60);
+
+          if (slotStartSec <= slotEndSec) {
+            return nowSec >= slotStartSec && nowSec < slotEndSec;
+          } else {
+            return nowSec >= slotStartSec || nowSec < slotEndSec;
+          }
+        });
+      }
 
       if (isSlotActive) {
         matchingSchedules.push({ ...sched, items });
@@ -445,8 +510,10 @@ function PlayerContent() {
     if (matchingSchedules.length === 0) {
       if (activeScheduleIdRef.current !== null || playlist.length > 0) {
         setPlaylist([]);
+        playlistRef.current = [];
         setCurrentMedia(null);
         setActiveScheduleId(null);
+        activeScheduleIdRef.current = null;
       }
       setPhase('playing');
       startHeartbeat(sid, null);
@@ -462,20 +529,40 @@ function PlayerContent() {
     const activeSchedule = matchingSchedules[0];
     const items = activeSchedule.items || [];
 
-    if (activeSchedule.id === activeScheduleIdRef.current && playlist.length > 0) {
+    // If the same schedule is still active, don't interrupt current playing video!
+    if (activeSchedule.id === activeScheduleIdRef.current && playlistRef.current.length > 0) {
+      const currentHash = (playlistRef.current || []).map((i: any) => `${i.id}_${i.media_id}_${i.play_limit}_${i.media?.duration}`).join('|');
+      const newHash = (items || []).map((i: any) => `${i.id}_${i.media_id}_${i.play_limit}_${i.media?.duration}`).join('|');
+
+      if (currentHash !== newHash && items.length > 0) {
+        setPlaylist(items as any);
+        playlistRef.current = items as any;
+        if (currentIndexRef.current >= items.length) {
+          currentIndexRef.current = 0;
+          itemRepeatCountRef.current = 0;
+          setCurrentIndex(0);
+          setCurrentMedia(items[0]?.media || null);
+        }
+      }
       setPhase('playing');
       return;
     }
 
     if (items && items.length > 0) {
       setActiveScheduleId(activeSchedule.id);
+      activeScheduleIdRef.current = activeSchedule.id;
       const loadedList = items as any;
       setPlaylist(loadedList);
       playlistRef.current = loadedList;
-      syncGlobalClock();
+      currentIndexRef.current = 0;
+      itemRepeatCountRef.current = 0;
+      setCurrentIndex(0);
+      setCurrentMedia(loadedList[0]?.media || null);
     } else {
       setActiveScheduleId(activeSchedule.id);
+      activeScheduleIdRef.current = activeSchedule.id;
       setPlaylist([]);
+      playlistRef.current = [];
       setCurrentMedia(null);
     }
 
@@ -530,7 +617,7 @@ function PlayerContent() {
   }, [screenId, phase]);
 
   // ============================================
-  // Periodic Clock Sync & Schedule Ticker
+  // Periodic Schedule Ticker (Keep in sync smoothly)
   // ============================================
   useEffect(() => {
     if (!screenId || phase === 'selection') return;
@@ -539,15 +626,10 @@ function PlayerContent() {
       loadScheduleAndPlay(screenId, false);
     }, SCHEDULE_CHECK_INTERVAL);
 
-    const clockTimer = setInterval(() => {
-      syncGlobalClock();
-    }, CLOCK_SYNC_INTERVAL);
-
     return () => {
       clearInterval(scheduleTimer);
-      clearInterval(clockTimer);
     };
-  }, [screenId, phase, syncGlobalClock]);
+  }, [screenId, phase]);
 
   // Preloading next media
   useEffect(() => {
@@ -567,31 +649,24 @@ function PlayerContent() {
     }
   }, [currentIndex, playlist]);
 
-  // Autoplay handler
+  // Autoplay handler (Optimized: No extraneous state re-renders)
   useEffect(() => {
     if (!currentMedia || phase !== 'playing') return;
 
     if (currentMedia.media_type === 'video' && videoRef.current) {
       const vid = videoRef.current;
+      vid.muted = isMuted;
 
       const attemptPlay = async () => {
         try {
-          if (!userExplicitlyMutedRef.current) {
-            vid.muted = false;
-            setIsMuted(false);
-            await vid.play();
-          } else {
-            vid.muted = true;
-            setIsMuted(true);
-            await vid.play();
-          }
+          await vid.play();
         } catch {
+          // If browser strictly blocks unmuted autoplay
+          vid.muted = true;
           try {
-            vid.muted = true;
-            setIsMuted(true);
             await vid.play();
           } catch {
-            // Autoplay blocked
+            // Autoplay blocked by user browser policy
           }
         }
       };
@@ -674,7 +749,7 @@ function PlayerContent() {
           <div className="flex items-center gap-2.5">
             <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200/80 text-slate-700 text-xs font-mono font-semibold">
               <Clock className="w-3.5 h-3.5 text-blue-600" />
-              <span>{currentTimeDisplay || '00:00:00'} WIB</span>
+              <LiveClock />
             </div>
 
             <Link
@@ -1006,19 +1081,35 @@ function PlayerContent() {
         </div>
       ) : currentMedia.media_type === 'video' ? (
         <video
+          key={currentMedia.id}
           ref={videoRef}
           src={currentMedia.file_url}
           autoPlay
-          loop={playlist.length === 1 || playlist[currentIndex]?.play_limit === 0}
+          loop={playlist.length === 1 && (playlist[0]?.play_limit === 0 || playlist[0]?.play_limit === 1)}
           playsInline
+          muted={isMuted}
+          onEnded={handleVideoEnded}
+          onError={handleVideoError}
           controls={false}
           preload="auto"
+          disablePictureInPicture
+          disableRemotePlayback
+          style={{
+            transform: 'translateZ(0)',
+            backfaceVisibility: 'hidden',
+            willChange: 'transform',
+          }}
           className={`w-full h-full ${fitClass}`}
         />
       ) : (
         <img
+          key={currentMedia.id}
           src={currentMedia.file_url}
           alt={currentMedia.title}
+          style={{
+            transform: 'translateZ(0)',
+            backfaceVisibility: 'hidden',
+          }}
           className={`w-full h-full ${fitClass}`}
         />
       )}
