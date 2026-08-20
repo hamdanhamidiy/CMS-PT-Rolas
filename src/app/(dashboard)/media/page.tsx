@@ -33,6 +33,11 @@ import {
   Eye,
   Plus,
   Play,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  ExternalLink,
+  Download,
 } from 'lucide-react';
 import Link from 'next/link';
 import type { Media } from '@/lib/types';
@@ -46,6 +51,7 @@ export default function MediaPage() {
   const [filter, setFilter] = useState<'all' | 'video' | 'image'>('all');
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [previewMedia, setPreviewMedia] = useState<Media | null>(null);
+  const [imageZoom, setImageZoom] = useState(1);
 
   useEffect(() => {
     loadMedia();
@@ -227,7 +233,10 @@ export default function MediaPage() {
             >
               {/* Thumbnail Container */}
               <div
-                onClick={() => setPreviewMedia(item)}
+                onClick={() => {
+                  setImageZoom(1);
+                  setPreviewMedia(item);
+                }}
                 onMouseEnter={(e) => {
                   if (item.media_type === 'video') {
                     const v = e.currentTarget.querySelector('video');
@@ -266,9 +275,14 @@ export default function MediaPage() {
                   </div>
                 )}
 
-                {item.media_type === 'video' && (
+                {/* Top-Left Type Icon Badge */}
+                {item.media_type === 'video' ? (
                   <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-black/60 backdrop-blur-xs border border-white/20 flex items-center justify-center text-white pointer-events-none z-10">
                     <Play className="w-3 h-3 fill-current ml-0.5 text-white" />
+                  </div>
+                ) : (
+                  <div className="absolute top-2 left-2 w-6 h-6 rounded-full bg-black/60 backdrop-blur-xs border border-white/20 flex items-center justify-center text-emerald-400 pointer-events-none z-10">
+                    <ZoomIn className="w-3.5 h-3.5" />
                   </div>
                 )}
 
@@ -279,10 +293,19 @@ export default function MediaPage() {
                 )}
 
                 {/* Hover Overlay Badge */}
-                <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center z-20">
-                  <div className="px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-md text-white text-[11px] font-semibold border border-white/20 shadow-md flex items-center gap-1.5 pointer-events-none">
-                    <Play className="w-3 h-3 fill-current text-blue-400" />
-                    <span>Putar</span>
+                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center justify-center z-20">
+                  <div className="px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md text-white text-xs font-semibold border border-white/20 shadow-md flex items-center gap-1.5 pointer-events-none">
+                    {item.media_type === 'video' ? (
+                      <>
+                        <Play className="w-3 h-3 fill-current text-blue-400" />
+                        <span>Putar Video</span>
+                      </>
+                    ) : (
+                      <>
+                        <ZoomIn className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Lihat & Perbesar</span>
+                      </>
+                    )}
                   </div>
                 </div>
               </div>
@@ -386,8 +409,12 @@ export default function MediaPage() {
                     <td className="px-6 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <button
-                          onClick={() => setPreviewMedia(item)}
+                          onClick={() => {
+                            setImageZoom(1);
+                            setPreviewMedia(item);
+                          }}
                           className="p-1 rounded-md hover:bg-blue-50 text-slate-400 hover:text-blue-600 transition-colors"
+                          title="Lihat Media"
                         >
                           <Eye className="w-3.5 h-3.5" />
                         </button>
@@ -420,39 +447,175 @@ export default function MediaPage() {
         </div>
       )}
 
-      {/* Preview Dialog */}
-      <Dialog open={!!previewMedia} onOpenChange={() => setPreviewMedia(null)}>
-        <DialogContent className="max-w-2xl rounded-2xl border-slate-200 p-6">
-          <DialogHeader>
-            <DialogTitle className="text-sm font-bold text-slate-900">{previewMedia?.title}</DialogTitle>
-          </DialogHeader>
-          <div className="aspect-video bg-slate-950 rounded-xl overflow-hidden flex items-center justify-center">
+      {/* Preview & Lightbox Modal (For Videos & Zoomable Photos) */}
+      <Dialog
+        open={!!previewMedia}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPreviewMedia(null);
+            setImageZoom(1);
+          }
+        }}
+      >
+        <DialogContent
+          className={`${
+            previewMedia?.media_type === 'image'
+              ? 'max-w-5xl sm:max-w-5xl md:max-w-5xl lg:max-w-6xl'
+              : 'max-w-3xl sm:max-w-3xl'
+          } w-full rounded-2xl border-slate-200 p-5 sm:p-6 bg-white shadow-2xl space-y-4`}
+        >
+          {/* Header with Title & Zoom/Action Toolbar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3.5 pr-8">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span
+                  className={`text-[10px] font-bold px-2.5 py-0.5 rounded-md border ${
+                    previewMedia?.media_type === 'video'
+                      ? 'bg-purple-50 text-purple-700 border-purple-200'
+                      : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  }`}
+                >
+                  {previewMedia && getMediaTypeLabel(previewMedia.media_type)}
+                </span>
+                <DialogTitle className="text-sm sm:text-base font-bold text-slate-900 truncate">
+                  {previewMedia?.title}
+                </DialogTitle>
+              </div>
+              <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500 font-normal">
+                <span>{previewMedia && formatFileSize(previewMedia.file_size)}</span>
+                {previewMedia?.duration && (
+                  <>
+                    <span>•</span>
+                    <span>Durasi: {formatDuration(previewMedia.duration)}</span>
+                  </>
+                )}
+                <span>•</span>
+                <span>Diunggah {previewMedia && formatDateTime(previewMedia.created_at)}</span>
+              </div>
+            </div>
+
+            {/* Quick Action Toolbar for Images */}
+            {previewMedia?.media_type === 'image' && (
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 self-start sm:self-auto flex-shrink-0">
+                {/* Zoom Out */}
+                <button
+                  onClick={() => setImageZoom((prev) => Math.max(Number((prev - 0.25).toFixed(2)), 0.5))}
+                  disabled={imageZoom <= 0.5}
+                  className="p-1.5 rounded-lg hover:bg-white text-slate-700 disabled:opacity-30 transition-all"
+                  title="Perkecil (-)"
+                >
+                  <ZoomOut className="w-4 h-4" />
+                </button>
+
+                {/* Zoom Level Indicator */}
+                <span className="text-[11px] font-mono font-bold text-slate-800 px-2 min-w-[48px] text-center">
+                  {Math.round(imageZoom * 100)}%
+                </span>
+
+                {/* Zoom In */}
+                <button
+                  onClick={() => setImageZoom((prev) => Math.min(Number((prev + 0.25).toFixed(2)), 3.5))}
+                  disabled={imageZoom >= 3.5}
+                  className="p-1.5 rounded-lg hover:bg-white text-slate-700 disabled:opacity-30 transition-all"
+                  title="Perbesar (+)"
+                >
+                  <ZoomIn className="w-4 h-4" />
+                </button>
+
+                {/* Reset Zoom */}
+                <button
+                  onClick={() => setImageZoom(1)}
+                  disabled={imageZoom === 1}
+                  className="p-1.5 rounded-lg hover:bg-white text-slate-700 disabled:opacity-30 transition-all ml-0.5"
+                  title="Reset Ukuran Normal (100%)"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                </button>
+
+                <div className="w-px h-4 bg-slate-300 mx-1" />
+
+                {/* Open Original / New Tab */}
+                {previewMedia.file_url && (
+                  <a
+                    href={previewMedia.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1.5 rounded-lg hover:bg-white text-slate-700 hover:text-blue-600 transition-all"
+                    title="Buka Ukuran Asli di Tab Baru"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                  </a>
+                )}
+
+                {/* Download */}
+                {previewMedia.file_url && (
+                  <a
+                    href={previewMedia.file_url}
+                    download={previewMedia.file_name || previewMedia.title}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1.5 rounded-lg hover:bg-white text-slate-700 hover:text-emerald-600 transition-all"
+                    title="Unduh Gambar"
+                  >
+                    <Download className="w-4 h-4" />
+                  </a>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Media Body Container */}
+          <div
+            className={`w-full rounded-2xl overflow-auto relative flex items-center justify-center border border-slate-800/80 bg-slate-950 select-none ${
+              previewMedia?.media_type === 'image'
+                ? 'min-h-[350px] max-h-[68vh] p-4'
+                : 'aspect-video'
+            }`}
+            onWheel={(e) => {
+              if (previewMedia?.media_type === 'image') {
+                if (e.deltaY < 0) {
+                  setImageZoom((prev) => Math.min(Number((prev + 0.2).toFixed(2)), 3.5));
+                } else {
+                  setImageZoom((prev) => Math.max(Number((prev - 0.2).toFixed(2)), 0.5));
+                }
+              }
+            }}
+          >
             {previewMedia?.media_type === 'video' ? (
               <video
                 src={previewMedia.file_url}
                 controls
-                className="w-full h-full"
+                className="w-full h-full rounded-xl"
                 autoPlay
               />
             ) : previewMedia?.file_url ? (
-              <img
-                src={previewMedia.file_url}
-                alt={previewMedia.title}
-                className="w-full h-full object-contain"
-              />
+              <div
+                className="flex items-center justify-center transition-transform duration-200 ease-out"
+                style={{
+                  transform: `scale(${imageZoom})`,
+                  transformOrigin: 'center center',
+                }}
+              >
+                <img
+                  src={previewMedia.file_url}
+                  alt={previewMedia.title}
+                  onDoubleClick={() => setImageZoom((prev) => (prev > 1 ? 1 : 2))}
+                  className={`max-h-[62vh] max-w-full object-contain rounded-lg shadow-2xl transition-all ${
+                    imageZoom > 1 ? 'cursor-zoom-out' : 'cursor-zoom-in'
+                  }`}
+                  title="Klik ganda untuk perbesar / perkecil cepat"
+                />
+              </div>
             ) : null}
           </div>
-          <div className="flex items-center gap-4 text-xs text-slate-500 font-normal">
-            <span className="font-semibold text-slate-700">{previewMedia && getMediaTypeLabel(previewMedia.media_type)}</span>
-            <span>•</span>
-            <span>{previewMedia && formatFileSize(previewMedia.file_size)}</span>
-            {previewMedia?.duration && (
-              <>
-                <span>•</span>
-                <span>{formatDuration(previewMedia.duration)}</span>
-              </>
-            )}
-          </div>
+
+          {/* Footer Hints */}
+          {previewMedia?.media_type === 'image' && (
+            <div className="flex items-center justify-between text-[11px] text-slate-400 font-normal pt-1">
+              <span>💡 Klik ganda atau scroll mouse pada gambar untuk perbesar/perkecil cepat.</span>
+              <span className="font-mono text-slate-500">{Math.round(imageZoom * 100)}% Skala</span>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
